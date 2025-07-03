@@ -1,0 +1,52 @@
+graph TD
+    A[User Interface Layer] --> B[Command Parser]
+    A --> C[Session Manager]
+    
+    B --> D[Command Dispatcher]
+    D --> E[Authentication Handler]
+    D --> F[File Transfer Handler]
+    D --> G[Connection Handler]
+    
+    C --> H[Control Connection]
+    C --> I[Data Connection Manager]
+    
+    H --> J[TCP Control Socket<br/>127.0.0.1:2121]
+    I --> K[TCP Data Socket<br/>Active Mode]
+    
+    E --> L[User Credentials]
+    F --> M[Local File System]
+    F --> N[Transfer Progress]
+    
+    G --> O[Response Parser]
+    O --> P[Status Codes<br/>220, 230, 200, 150, 226, 221]
+    
+    Q[Configuration] --> C
+    Q --> R[Server Settings<br/>Host, Port, Timeout]
+    
+    S[Error Handler] --> T[Connection Errors]
+    S --> U[Protocol Errors]
+    S --> V[File System Errors]
+    
+    W[Logging System] --> X[Command Log]
+    W --> Y[Transfer Log]
+    W --> Z[Error Log]
+    
+    subgraph "Core Client Components"
+        C
+        H
+        I
+        B
+        D
+    end
+    
+    subgraph "Command Handlers"
+        E
+        F
+        G
+    end
+    
+    subgraph "External Interfaces"
+        J
+        K
+        M
+    end
