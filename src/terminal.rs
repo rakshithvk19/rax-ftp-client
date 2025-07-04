@@ -1,13 +1,14 @@
 //! Terminal module for RAX FTP Client
 //!
-//! Handles user interaction and command dispatching for interactive sessions.
+//! Handles user interaction and coordinates between parser and client.
 
 use log::{debug, error, info};
 use std::io::{self, Write};
 
 use crate::client::RaxFtpClient;
+use crate::commands::{FtpCommand, parse_command};
 use crate::config::ClientConfig;
-use crate::error::{RaxFtpClientError, Result};
+use crate::error::Result;
 
 /// Terminal handler for interactive FTP sessions
 pub struct Terminal {
@@ -51,7 +52,7 @@ impl Terminal {
 
                     debug!("User entered command: {}", command);
 
-                    // Handle the command
+                    // Parse command and handle it
                     match self.handle_command(command) {
                         Ok(should_continue) => {
                             if !should_continue {
@@ -77,90 +78,63 @@ impl Terminal {
         Ok(())
     }
 
-    /// Handle a user command and return whether to continue the session
-    /// NOTE: This is temporary - will be replaced by command parser later
-    fn handle_command(&mut self, command: &str) -> Result<bool> {
-        let parts: Vec<&str> = command.split_whitespace().collect();
-        if parts.is_empty() {
-            return Ok(true);
-        }
+    /// Handle a user command using parser and client communication
+    fn handle_command(&mut self, input: &str) -> Result<bool> {
+        let parsed_command = parse_command(input);
 
-        let cmd = parts[0].to_uppercase();
-
-        match cmd.as_str() {
-            "HELP" => {
+        match parsed_command {
+            FtpCommand::Help => {
                 self.show_help();
                 Ok(true)
             }
-            "QUIT" => {
+            FtpCommand::Quit => {
                 println!("Disconnecting from server...");
                 Ok(false)
             }
-            "USER" => {
-                if parts.len() < 2 {
-                    println!("Usage: USER <username>");
-                    return Ok(true);
-                }
-                self.handle_user_command(parts[1])
+            FtpCommand::Unknown(msg) => {
+                println!("Error: {}", msg);
+                Ok(true)
             }
-            "PASS" => {
-                if parts.len() < 2 {
-                    println!("Usage: PASS <password>");
-                    return Ok(true);
+            // For all other commands, send to server and display response
+            cmd => self.execute_ftp_command(cmd),
+        }
+    }
+
+    /// Execute FTP command by sending to server and displaying response
+    fn execute_ftp_command(&mut self, command: FtpCommand) -> Result<bool> {
+        if command.is_client_only() {
+            // This shouldn't happen since we handle HELP above, but just in case
+            return Ok(true);
+        }
+
+        // Convert to FTP protocol string and send to server
+        let ftp_command_str = command.to_ftp_string();
+        debug!("Sending FTP command: {}", ftp_command_str);
+
+        // Send command to server
+        if let Err(e) = self.client.send_command(&ftp_command_str) {
+            println!("Failed to send command: {}", e);
+            return Ok(true);
+        }
+
+        // Read response from server
+        match self.client.read_response() {
+            Ok(response) => {
+                // Display server response to user
+                print!("{}", response);
+                if !response.ends_with('\n') {
+                    println!(); // Ensure newline
                 }
-                self.handle_pass_command(parts[1])
+                Ok(true)
             }
-            "STOR" => {
-                if parts.len() < 2 {
-                    println!("Usage: STOR <filename>");
-                    return Ok(true);
-                }
-                self.handle_stor_command(parts[1])
-            }
-            "RETR" => {
-                if parts.len() < 2 {
-                    println!("Usage: RETR <filename>");
-                    return Ok(true);
-                }
-                self.handle_retr_command(parts[1])
-            }
-            "PORT" => {
-                if parts.len() < 2 {
-                    println!("Usage: PORT <ip:port>");
-                    return Ok(true);
-                }
-                self.handle_port_command(parts[1])
-            }
-            "PASV" => self.handle_pasv_command(),
-            "LIST" => self.handle_list_command(),
-            "PWD" => self.handle_pwd_command(),
-            "CWD" => {
-                if parts.len() < 2 {
-                    println!("Usage: CWD <directory>");
-                    return Ok(true);
-                }
-                self.handle_cwd_command(parts[1])
-            }
-            "DEL" => {
-                if parts.len() < 2 {
-                    println!("Usage: DEL <filename>");
-                    return Ok(true);
-                }
-                self.handle_del_command(parts[1])
-            }
-            "LOGOUT" => self.handle_logout_command(),
-            "RAX" => self.handle_rax_command(),
-            _ => {
-                println!(
-                    "Unknown command: {}. Type 'HELP' for available commands.",
-                    cmd
-                );
+            Err(e) => {
+                println!("Failed to read server response: {}", e);
                 Ok(true)
             }
         }
     }
 
-    /// Show help information
+    /// Show help information (client-side only)
     fn show_help(&self) {
         println!("Available commands:");
         println!("  USER <username>   - Authenticate with username");
@@ -181,73 +155,5 @@ impl Terminal {
         println!("Current server: {}", self.config.display_name());
         println!("Current state: {}", self.client.get_state());
         println!("Local directory: {}", self.config.local_directory);
-    }
-
-    // TODO: These command handlers are temporary stubs
-    // They will be replaced by proper command parsing and client methods
-
-    fn handle_user_command(&mut self, username: &str) -> Result<bool> {
-        println!("331 User name okay, need password.");
-        Ok(true)
-    }
-
-    fn handle_pass_command(&mut self, password: &str) -> Result<bool> {
-        println!("230 User logged in, proceed.");
-        Ok(true)
-    }
-
-    fn handle_stor_command(&mut self, filename: &str) -> Result<bool> {
-        println!("150 Opening data connection for file transfer.");
-        println!("226 Transfer complete.");
-        Ok(true)
-    }
-
-    fn handle_retr_command(&mut self, filename: &str) -> Result<bool> {
-        println!("150 Opening data connection for file transfer.");
-        println!("226 Transfer complete.");
-        Ok(true)
-    }
-
-    fn handle_port_command(&mut self, port_spec: &str) -> Result<bool> {
-        println!("200 Port command successful.");
-        Ok(true)
-    }
-
-    fn handle_pasv_command(&mut self) -> Result<bool> {
-        println!("227 Entering passive mode (127,0,0,1,8,235).");
-        Ok(true)
-    }
-
-    fn handle_list_command(&mut self) -> Result<bool> {
-        println!("150 Opening data connection for directory listing.");
-        println!("drwxr-xr-x   2 user     user         4096 Jul 03 16:30 documents");
-        println!("-rw-r--r--   1 user     user         1024 Jul 03 16:25 test.txt");
-        println!("226 Directory send OK.");
-        Ok(true)
-    }
-
-    fn handle_pwd_command(&mut self) -> Result<bool> {
-        println!("257 \"/home/user\" is current directory.");
-        Ok(true)
-    }
-
-    fn handle_cwd_command(&mut self, directory: &str) -> Result<bool> {
-        println!("250 Directory changed successfully.");
-        Ok(true)
-    }
-
-    fn handle_del_command(&mut self, filename: &str) -> Result<bool> {
-        println!("250 File deleted successfully.");
-        Ok(true)
-    }
-
-    fn handle_logout_command(&mut self) -> Result<bool> {
-        println!("221 Logout successful.");
-        Ok(true)
-    }
-
-    fn handle_rax_command(&mut self) -> Result<bool> {
-        println!("200 Rax is the best.");
-        Ok(true)
     }
 }
