@@ -6,6 +6,7 @@ mod config;
 mod connection;
 mod error;
 mod logging;
+mod responses;
 mod terminal;
 mod transfer;
 mod utils;
