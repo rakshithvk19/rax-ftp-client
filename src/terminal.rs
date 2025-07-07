@@ -27,13 +27,30 @@ impl Terminal {
         Self { client, config }
     }
 
-    /// Run the interactive FTP session
+    // Run the interactive FTP session with automatic connection attempt
     pub fn run_interactive(&mut self) -> Result<()> {
+        // Show initial state (disconnected)
         println!("RAX FTP Client - Interactive Session");
         println!("Connected to: {}", self.config.display_name());
+        println!("Current state: {}", self.client.get_state());
         println!("Type 'HELP' for available commands or 'QUIT' to exit");
         println!();
 
+        // Attempt automatic connection
+        println!("Attempting to connect to server...");
+        match self.client.connect_with_retries() {
+            Ok(greeting) => {
+                println!("Connected successfully!");
+                println!("{}", greeting.trim()); // Display server greeting
+            }
+            Err(e) => {
+                println!("Connection failed: {}", e);
+                println!("Continuing in disconnected mode...");
+            }
+        }
+        println!();
+
+        // Continue with interactive session
         let stdin = io::stdin();
         loop {
             // Show prompt with current state
@@ -100,40 +117,6 @@ impl Terminal {
         }
     }
 
-    /// Execute FTP command by sending to server and displaying response
-    fn execute_ftp_command(&mut self, command: FtpCommand) -> Result<bool> {
-        if command.is_client_only() {
-            // This shouldn't happen since we handle HELP above, but just in case
-            return Ok(true);
-        }
-
-        // Convert to FTP protocol string and send to server
-        let ftp_command_str = command.to_ftp_string();
-        debug!("Sending FTP command: {}", ftp_command_str);
-
-        // Send command to server
-        if let Err(e) = self.client.send_command(&ftp_command_str) {
-            println!("Failed to send command: {}", e);
-            return Ok(true);
-        }
-
-        // Read response from server
-        match self.client.read_response() {
-            Ok(response) => {
-                // Display server response to user
-                print!("{}", response);
-                if !response.ends_with('\n') {
-                    println!(); // Ensure newline
-                }
-                Ok(true)
-            }
-            Err(e) => {
-                println!("Failed to read server response: {}", e);
-                Ok(true)
-            }
-        }
-    }
-
     /// Show help information (client-side only)
     fn show_help(&self) {
         println!("Available commands:");
@@ -155,5 +138,29 @@ impl Terminal {
         println!("Current server: {}", self.config.display_name());
         println!("Current state: {}", self.client.get_state());
         println!("Local directory: {}", self.config.local_directory);
+    }
+
+    /// Execute FTP command by sending to server and displaying response
+    fn execute_ftp_command(&mut self, command: FtpCommand) -> Result<bool> {
+        if command.is_client_only() {
+            // This shouldn't happen since we handle HELP above, but just in case
+            return Ok(true);
+        }
+
+        // Use the enhanced client execute_command method
+        match self.client.execute_command(&command) {
+            Ok(response) => {
+                // Display server response to user
+                print!("{}", response);
+                if !response.ends_with('\n') {
+                    println!(); // Ensure newline
+                }
+                Ok(true)
+            }
+            Err(e) => {
+                println!("Command failed: {}", e);
+                Ok(true)
+            }
+        }
     }
 }

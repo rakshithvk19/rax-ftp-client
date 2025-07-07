@@ -29,16 +29,11 @@ fn main() {
         }
     };
 
-    // Create client
-    let mut client = RaxFtpClient::new(config.clone());
-
-    // Connect to server
-    if let Err(e) = client.connect_with_retries() {
-        eprintln!("Failed to connect: {}", e);
-        process::exit(1);
-    }
+    // Create client (starts in disconnected state)
+    let client = RaxFtpClient::new(config.clone());
 
     // Create terminal and run interactive session
+    // Terminal will handle the connection attempt internally
     let mut terminal = Terminal::new(client, config);
     if let Err(e) = terminal.run_interactive() {
         eprintln!("Terminal error: {}", e);
@@ -55,6 +50,7 @@ fn print_usage() {
     println!("  RAX_FTP_LOCAL_DIR=\"./downloads\"");
     println!("  RUST_LOG=info");
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

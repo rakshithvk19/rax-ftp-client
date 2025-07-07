@@ -4,4 +4,6 @@ pub mod download;
 pub mod progress;
 pub mod upload;
 
-// TODO: Add transfer functionality
+// Re-export main functions
+pub use progress::TransferProgress;
+pub use upload::{upload_file_with_progress, validate_upload_file};

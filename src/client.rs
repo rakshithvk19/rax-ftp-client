@@ -1,9 +1,12 @@
 use log::{debug, info};
+use std::path::Path;
 
+use crate::commands::FtpCommand;
 use crate::config::ClientConfig;
-use crate::connection::CommandConnection;
+use crate::connection::{CommandConnection, DataConnection};
 use crate::error::Result;
 use crate::responses::{FtpResponse, is_authentication_success, parse_response};
+use crate::transfer::{upload_file_with_progress, validate_upload_file};
 
 /// Client connection state
 #[derive(Debug, Clone, PartialEq)]
@@ -27,6 +30,7 @@ impl std::fmt::Display for ClientState {
 pub struct RaxFtpClient {
     connection: CommandConnection,
     state: ClientState,
+    config: ClientConfig,
 }
 
 impl RaxFtpClient {
@@ -37,14 +41,15 @@ impl RaxFtpClient {
         Self {
             connection: CommandConnection::new(&config),
             state: ClientState::Disconnected,
+            config,
         }
     }
 
     /// Connect to the FTP server with retry logic
-    pub fn connect_with_retries(&mut self) -> Result<()> {
-        self.connection.connect_with_retries()?;
+    pub fn connect_with_retries(&mut self) -> Result<String> {
+        let greeting = self.connection.connect_with_retries()?;
         self.state = ClientState::Connected;
-        Ok(())
+        Ok(greeting)
     }
 
     /// Get current client state for display
@@ -67,6 +72,71 @@ impl RaxFtpClient {
         self.connection.disconnect()?;
         self.state = ClientState::Disconnected;
         Ok(())
+    }
+
+    /// Send a command and handle file transfers if needed
+    pub fn execute_command(&mut self, command: &FtpCommand) -> Result<String> {
+        match command {
+            FtpCommand::Stor(filename) => self.handle_stor_command(filename),
+            // For all other commands, send normally
+            _ => {
+                let command_str = command.to_ftp_string();
+                self.send_command(&command_str)?;
+                self.read_response()
+            }
+        }
+    }
+
+    /// Handle STOR command with file transfer
+    fn handle_stor_command(&mut self, filename: &str) -> Result<String> {
+        // Build local file path
+        let local_path = Path::new(&self.config.local_directory).join(filename);
+
+        // Validate file before starting transfer
+        validate_upload_file(&local_path)?;
+
+        // Create data connection for PORT mode
+        let mut data_connection = DataConnection::new_port_mode(&self.config)?;
+
+        // Send PORT command
+        let port_command = data_connection.get_port_command()?;
+        self.send_command(&port_command)?;
+        let port_response = self.read_response()?;
+
+        // Check if PORT command was successful
+        if !port_response.starts_with("200") {
+            return Ok(format!("PORT command failed: {}", port_response));
+        }
+
+        // Send STOR command
+        let stor_command = format!("STOR {}", filename);
+        self.send_command(&stor_command)?;
+        let stor_response = self.read_response()?;
+
+        // Check if STOR command was accepted
+        if !stor_response.starts_with("150") {
+            return Ok(format!("STOR command failed: {}", stor_response));
+        }
+
+        // Print initial response
+        print!("{}", stor_response);
+
+        // Accept data connection from server
+        data_connection.accept_connection()?;
+
+        // Upload the file with progress
+        match upload_file_with_progress(data_connection, &local_path, filename) {
+            Ok(()) => {
+                // Read final response from server
+                let final_response = self.read_response()?;
+                Ok(final_response)
+            }
+            Err(e) => {
+                // Read final response even if upload failed
+                let _ = self.read_response();
+                Err(e)
+            }
+        }
     }
 
     /// Send a raw FTP command to the server

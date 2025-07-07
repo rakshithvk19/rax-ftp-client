@@ -7,3 +7,4 @@ pub mod data;
 
 // Re-export main types
 pub use command::CommandConnection;
+pub use data::DataConnection;

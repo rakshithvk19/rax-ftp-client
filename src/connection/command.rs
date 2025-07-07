@@ -37,17 +37,17 @@ impl CommandConnection {
     }
 
     /// Connect to the FTP server with retry logic
-    pub fn connect_with_retries(&mut self) -> Result<()> {
+    pub fn connect_with_retries(&mut self) -> Result<String> {
         info!("Attempting to connect to {}:{}", self.host, self.port);
 
         for attempt in 1..=self.max_retries {
             match self.connect() {
-                Ok(()) => {
+                Ok(greeting) => {
                     info!(
                         "Successfully connected to FTP server on attempt {}",
                         attempt
                     );
-                    return Ok(());
+                    return Ok(greeting);
                 }
                 Err(e) => {
                     error!("Connection attempt {} failed: {}", attempt, e);
@@ -66,9 +66,8 @@ impl CommandConnection {
             self.max_retries
         )))
     }
-
     /// Connect to the FTP server (single attempt)
-    fn connect(&mut self) -> Result<()> {
+    fn connect(&mut self) -> Result<String> {
         // Create TCP connection with timeout
         let stream = TcpStream::connect_timeout(
             &format!("{}:{}", self.host, self.port)
@@ -97,9 +96,13 @@ impl CommandConnection {
 
         self.stream = Some(stream);
         info!("Connected to FTP server at {}:{}", self.host, self.port);
-        Ok(())
-    }
 
+        // Read the server greeting immediately
+        let greeting = self.read_response()?;
+        info!("Server greeting: {}", greeting.trim());
+
+        Ok(greeting)
+    }
     /// Check if the connection is active
     pub fn is_connected(&self) -> bool {
         self.stream.is_some()
