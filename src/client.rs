@@ -182,8 +182,17 @@ impl RaxFtpClient {
 
             // Logout successful - user remains connected but not authenticated
             221 => {
-                debug!("Logout successful, updating state to Connected");
-                self.state = ClientState::Connected;
+                debug!("Received 221 response - checking if this is QUIT");
+                // For QUIT command, server closes connection, so we should be disconnected
+                // For LOGOUT, user remains connected
+                // We can differentiate by checking if connection is still alive
+                if !self.connection.is_connected() {
+                    debug!("Connection closed by server, updating state to Disconnected");
+                    self.state = ClientState::Disconnected;
+                } else {
+                    debug!("Logout successful, updating state to Connected");
+                    self.state = ClientState::Connected;
+                }
             }
 
             // For all other responses, don't change state

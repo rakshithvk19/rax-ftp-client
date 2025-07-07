@@ -104,10 +104,6 @@ impl Terminal {
                 self.show_help();
                 Ok(true)
             }
-            FtpCommand::Quit => {
-                println!("Disconnecting from server...");
-                Ok(false)
-            }
             FtpCommand::Unknown(msg) => {
                 println!("Error: {}", msg);
                 Ok(true)
@@ -155,7 +151,14 @@ impl Terminal {
                 if !response.ends_with('\n') {
                     println!(); // Ensure newline
                 }
-                Ok(true)
+
+                // Check if client state changed to disconnected (for QUIT command)
+                if !self.client.is_connected() {
+                    println!("Connection closed by server. Closing session...");
+                    return Ok(false); // Exit the interactive loop
+                }
+
+                Ok(true) // Continue with session
             }
             Err(e) => {
                 println!("Command failed: {}", e);
