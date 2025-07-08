@@ -1,0 +1,23 @@
+# RAX FTP Client Configuration
+# This file contains all configuration settings for the FTP client.
+# Environment variables can override these settings.
+
+[server]
+# FTP server connection settings
+host = "127.0.0.1"              # Server hostname or IP address
+host_name = "RAX FTP Server"    # Friendly display name (optional)
+port = 2121                     # Server port number
+timeout = 5                     # Connection timeout in seconds
+max_retries = 3                 # Maximum connection retry attempts
+
+[client]
+# Client-side settings
+local_directory = "./client_root"  # Local directory for file operations
+data_port_start = 2122            # Start of data port range for active mode
+data_port_end = 2130              # End of data port range for active mode
+
+[logging]
+# Logging configuration
+level = "info"          # Logging level: trace, debug, info, warn, error
+command_log = true      # Log all FTP commands sent/received
+transfer_log = true     # Log file transfer operations

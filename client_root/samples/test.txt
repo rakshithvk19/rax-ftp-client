@@ -1,0 +1,24 @@
+Hello from the RAX FTP Client!
+
+This is another test file that demonstrates the file upload capabilities.
+
+File: test.txt
+Purpose: Additional testing file
+Content: Lorem ipsum text for testing
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis 
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore 
+eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, 
+sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+This file is intentionally longer than sample.txt to test progress tracking
+with files of different sizes.
+
+Test commands:
+- STOR samples/test.txt
+- STOR test.txt (if copied to client_root/)
+
+End of test file.

@@ -1,0 +1,24 @@
+This is a sample file for testing the RAX FTP Client.
+
+You can use this file to test the STOR (upload) command:
+
+1. Start the RAX FTP Client
+2. Authenticate with the server (USER/PASS commands)
+3. Upload this file: STOR samples/sample.txt
+4. Verify the upload completed successfully
+
+File details:
+- Filename: sample.txt
+- Size: Small (for quick testing)
+- Content: Plain text
+- Purpose: Demonstrate file upload functionality
+
+Feel free to create additional test files in this samples/ directory.
+
+Test scenarios you can try:
+- Upload this file with: STOR samples/sample.txt
+- Upload from root with: STOR sample.txt (after copying to client_root/)
+- Test with different file sizes and types
+- Verify progress tracking during upload
+
+Happy testing!

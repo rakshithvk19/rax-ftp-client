@@ -20,7 +20,7 @@ impl DataConnection {
     /// Create a new data connection for PORT mode
     pub fn new_port_mode(config: &ClientConfig) -> Result<Self> {
         // Try to bind to an available port in the configured range
-        let (start_port, end_port) = config.data_port_range;
+        let (start_port, end_port) = config.get_data_port_range();
 
         for port in start_port..=end_port {
             let addr = format!("0.0.0.0:{}", port);
@@ -37,7 +37,7 @@ impl DataConnection {
                         listener: Some(listener),
                         stream: None,
                         local_addr: Some(local_addr),
-                        timeout: Duration::from_secs(config.timeout),
+                        timeout: Duration::from_secs(config.timeout()),
                     });
                 }
                 Err(e) => {

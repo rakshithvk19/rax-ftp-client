@@ -27,7 +27,7 @@ impl Terminal {
         Self { client, config }
     }
 
-    // Run the interactive FTP session with automatic connection attempt
+    /// Run the interactive FTP session with automatic connection attempt
     pub fn run_interactive(&mut self) -> Result<()> {
         // Show initial state (disconnected)
         println!("RAX FTP Client - Interactive Session");
@@ -89,9 +89,12 @@ impl Terminal {
             }
         }
 
-        // Cleanup
-        println!("Closing session...");
-        self.client.disconnect()?;
+        // Cleanup - only disconnect if still connected
+        // (QUIT command may have already handled the disconnection)
+        if self.client.is_connected() {
+            println!("Closing remaining connection...");
+            self.client.disconnect()?;
+        }
         Ok(())
     }
 
@@ -108,7 +111,7 @@ impl Terminal {
                 println!("Error: {}", msg);
                 Ok(true)
             }
-            // For all other commands, send to server and display response
+            // For all other commands (including QUIT), send to server and display response
             cmd => self.execute_ftp_command(cmd),
         }
     }
@@ -133,13 +136,17 @@ impl Terminal {
         println!();
         println!("Current server: {}", self.config.display_name());
         println!("Current state: {}", self.client.get_state());
-        println!("Local directory: {}", self.config.local_directory);
+        println!("Local directory: {}", self.config.local_directory());
+        println!(
+            "Data port range: {}-{}",
+            self.config.get_data_port_range().0,
+            self.config.get_data_port_range().1
+        );
     }
 
     /// Execute FTP command by sending to server and displaying response
     fn execute_ftp_command(&mut self, command: FtpCommand) -> Result<bool> {
         if command.is_client_only() {
-            // This shouldn't happen since we handle HELP above, but just in case
             return Ok(true);
         }
 

@@ -49,6 +49,7 @@ impl RaxFtpClient {
     pub fn connect_with_retries(&mut self) -> Result<String> {
         let greeting = self.connection.connect_with_retries()?;
         self.state = ClientState::Connected;
+
         Ok(greeting)
     }
 
@@ -89,8 +90,8 @@ impl RaxFtpClient {
 
     /// Handle STOR command with file transfer
     fn handle_stor_command(&mut self, filename: &str) -> Result<String> {
-        // Build local file path
-        let local_path = Path::new(&self.config.local_directory).join(filename);
+        // Build local file path using the config's local directory
+        let local_path = Path::new(self.config.local_directory()).join(filename);
 
         // Validate file before starting transfer
         validate_upload_file(&local_path)?;

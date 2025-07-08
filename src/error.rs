@@ -34,6 +34,9 @@ pub enum RaxFtpClientError {
     InvalidPort(String),
     InvalidTimeout(String),
     MissingConfiguration(String),
+    ConfigFileNotFound(String),
+    ConfigFileParseError(String),
+    InvalidConfigValue(String),
 
     // IO Errors
     Io(std::io::Error),
@@ -100,6 +103,9 @@ impl fmt::Display for RaxFtpClientError {
             Self::InvalidPort(msg) => write!(f, "Invalid port: {}", msg),
             Self::InvalidTimeout(msg) => write!(f, "Invalid timeout: {}", msg),
             Self::MissingConfiguration(msg) => write!(f, "Missing configuration: {}", msg),
+            Self::ConfigFileNotFound(msg) => write!(f, "Config file not found: {}", msg),
+            Self::ConfigFileParseError(msg) => write!(f, "Config file parse error: {}", msg),
+            Self::InvalidConfigValue(msg) => write!(f, "Invalid config value: {}", msg),
 
             // IO Errors
             Self::Io(err) => write!(f, "IO error: {}", err),

@@ -24,15 +24,16 @@ impl CommandConnection {
     pub fn new(config: &ClientConfig) -> Self {
         info!(
             "Creating command connection for {}:{}",
-            config.host, config.port
+            config.host(),
+            config.port()
         );
 
         Self {
             stream: None,
-            host: config.host.clone(),
-            port: config.port,
-            timeout: config.timeout,
-            max_retries: config.max_retries,
+            host: config.host().to_string(),
+            port: config.port(),
+            timeout: config.timeout(),
+            max_retries: config.max_retries(),
         }
     }
 
@@ -66,6 +67,7 @@ impl CommandConnection {
             self.max_retries
         )))
     }
+
     /// Connect to the FTP server (single attempt)
     fn connect(&mut self) -> Result<String> {
         // Create TCP connection with timeout
@@ -96,13 +98,14 @@ impl CommandConnection {
 
         self.stream = Some(stream);
         info!("Connected to FTP server at {}:{}", self.host, self.port);
-
         // Read the server greeting immediately
+
         let greeting = self.read_response()?;
         info!("Server greeting: {}", greeting.trim());
 
         Ok(greeting)
     }
+
     /// Check if the connection is active
     pub fn is_connected(&self) -> bool {
         self.stream.is_some()
