@@ -39,9 +39,8 @@ impl Terminal {
         // Attempt automatic connection
         println!("Attempting to connect to server...");
         match self.client.connect_with_retries() {
-            Ok(greeting) => {
-                println!("Connected successfully!");
-                println!("{}", greeting.trim()); // Display server greeting
+            Ok(()) => {
+                println!("Connected successfully! State: {}", self.client.get_state());
             }
             Err(e) => {
                 println!("Connection failed: {}", e);
@@ -123,9 +122,9 @@ impl Terminal {
         println!("  PASS <password>   - Provide password");
         println!("  STOR <filename>   - Upload file to server");
         println!("  RETR <filename>   - Download file from server");
+        println!("  LIST              - List directory contents");
         println!("  PORT <ip:port>    - Set data connection port (active mode)");
         println!("  PASV              - Enter passive mode");
-        println!("  LIST              - List directory contents");
         println!("  PWD               - Print working directory");
         println!("  CWD <directory>   - Change working directory");
         println!("  DEL <filename>    - Delete file on server");
@@ -133,6 +132,12 @@ impl Terminal {
         println!("  RAX               - Custom server command");
         println!("  QUIT              - Disconnect and exit");
         println!("  HELP              - Show this help message");
+        println!();
+        println!("Data Transfer Information:");
+        println!("  Default mode: Passive (PASV)");
+        println!("  Data commands (LIST, STOR, RETR) automatically establish data connections");
+        println!("  Use PORT command to switch to active mode");
+        println!("  Use PASV command to switch to passive mode");
         println!();
         println!("Current server: {}", self.config.display_name());
         println!("Current state: {}", self.client.get_state());
