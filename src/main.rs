@@ -9,7 +9,6 @@ mod logging;
 mod responses;
 mod terminal;
 mod transfer;
-mod utils;
 
 use client::RaxFtpClient;
 use config::ClientConfig;
