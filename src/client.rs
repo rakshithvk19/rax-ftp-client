@@ -148,8 +148,9 @@ impl RaxFtpClient {
         self.send_command(&command_str)?;
         let response = self.read_response()?;
 
-        // If successful, store data connection info
+        // If successful, clear old connection info and store new data connection info
         if response.starts_with("200") {
+            info!("Switching to active mode, clearing previous data connection info");
             self.data_connection_info = Some(DataConnectionInfo {
                 mode: DataMode::Active,
                 host: parsed_addr.ip().to_string(),
@@ -164,8 +165,9 @@ impl RaxFtpClient {
         self.send_command("PASV")?;
         let response = self.read_response()?;
 
-        // If successful, parse and store passive mode info
+        // If successful, clear old connection info and parse and store passive mode info
         if response.starts_with("227") {
+            info!("Switching to passive mode, clearing previous data connection info");
             // Parse server's response format: "227 Entering Passive Mode (127.0.0.1:2122)"
             if let Some(start) = response.find('(') {
                 if let Some(end) = response.find(')') {
@@ -185,26 +187,13 @@ impl RaxFtpClient {
     }
 
     fn handle_list_command(&mut self) -> Result<String> {
-        // Check if data connection mode is already set
+        // Check if data connection mode is set
         if self.data_connection_info.is_none() {
-            info!("No data connection mode set, automatically entering passive mode...");
-
-            // Automatically execute PASV command
-            let pasv_response = self.handle_pasv_command()?;
-
-            // Check if PASV was successful
-            if !pasv_response.starts_with("227") {
-                return Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "Failed to enter passive mode: {}",
-                    pasv_response
-                )));
-            }
-
-            // Print passive mode info for user
-            println!("Automatically entered passive mode: {}", pasv_response);
+            return Err(RaxFtpClientError::DataConnectionFailed(
+                "No data connection mode set. Use PASV or PORT command first".to_string()
+            ));
         }
 
-        // Now proceed with the existing LIST logic
         // Establish data connection based on current mode
         let mut data_connection = match DataConnection::establish_from_info(
             self.data_connection_info.as_ref(),
@@ -212,7 +201,6 @@ impl RaxFtpClient {
         ) {
             Ok(conn) => conn,
             Err(e) => {
-                // This should rarely happen now since we auto-PASV above
                 return Err(RaxFtpClientError::DataConnectionFailed(format!(
                     "425 Can't open data connection: {}",
                     e
@@ -276,6 +264,13 @@ impl RaxFtpClient {
         // Basic validation (keep your existing validate_upload_file call)
         validate_upload_file(&local_path)?;
 
+        // Check if data connection mode is set
+        if self.data_connection_info.is_none() {
+            return Err(RaxFtpClientError::DataConnectionFailed(
+                "No data connection mode set. Use PASV or PORT command first".to_string()
+            ));
+        }
+
         // Establish data connection based on current mode
         let mut data_connection = match DataConnection::establish_from_info(
             self.data_connection_info.as_ref(),
@@ -284,7 +279,7 @@ impl RaxFtpClient {
             Ok(conn) => conn,
             Err(e) => {
                 return Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "425 Can't open data connection: {}. Try running 'pasv' or 'port <your_ip>:<port>' command first.",
+                    "425 Can't open data connection: {}",
                     e
                 )));
             }

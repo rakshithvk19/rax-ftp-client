@@ -285,18 +285,18 @@ impl DataConnection {
             } => {
                 if let Some(stream) = stream.take() {
                     stream.shutdown(std::net::Shutdown::Both)?;
-                    info!("Data connection closed");
+                    info!("Active mode data connection closed");
                 }
 
                 if let Some(listener) = listener.take() {
                     drop(listener);
-                    debug!("Data listener closed");
+                    debug!("Active mode data listener closed");
                 }
             }
             DataConnectionMode::Passive { stream, .. } => {
                 if let Some(stream) = stream.take() {
                     stream.shutdown(std::net::Shutdown::Both)?;
-                    info!("Data connection closed");
+                    info!("Passive mode data connection closed");
                 }
             }
         }

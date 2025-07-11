@@ -20,8 +20,9 @@ pub fn get_help_text() -> String {
   HELP              - Show this help message
 
 Data Transfer Information:
-  Default mode: Passive (PASV)
-  Data commands (LIST, STOR, RETR) automatically establish data connections
+  Set data connection mode using PASV (passive) or PORT (active) commands
+  Data connection mode persists for entire session until changed
+  Data commands (LIST, STOR, RETR) require connection mode to be set first
   Use PORT command to switch to active mode
   Use PASV command to switch to passive mode
 
