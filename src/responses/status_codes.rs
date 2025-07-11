@@ -27,7 +27,9 @@ pub const SYNTAX_ERROR: u16 = 501;
 pub const COMMAND_NOT_RECOGNIZED: u16 = 500;
 pub const DATA_CONNECTION_FAILED: u16 = 425;
 pub const TRANSFER_FAILED: u16 = 426;
-
+// Client-side error codes
+pub const CLIENT_ERROR_NOT_AUTHENTICATED: u16 = 530;
+pub const CLIENT_ERROR_ALREADY_AUTHENTICATED: u16 = 503;
 /// Check if status code indicates success
 pub fn is_success(code: u16) -> bool {
     code >= 200 && code < 300

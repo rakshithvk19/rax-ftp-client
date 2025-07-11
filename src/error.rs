@@ -15,6 +15,8 @@ pub enum RaxFtpClientError {
     AuthenticationFailed { code: u16, message: String },
     UserNotFound { code: u16, message: String },
     PermissionDenied { code: u16, message: String },
+    NotAuthenticated(String),
+    AlreadyAuthenticated(String),
 
     // Transfer Errors
     FileNotFound { code: u16, message: String },
@@ -68,6 +70,8 @@ impl fmt::Display for RaxFtpClientError {
             Self::PermissionDenied { code, message } => {
                 write!(f, "Permission denied ({}): {}", code, message)
             }
+            Self::NotAuthenticated(msg) => write!(f, "{}", msg),
+            Self::AlreadyAuthenticated(msg) => write!(f, "{}", msg),
 
             // Transfer Errors
             Self::FileNotFound { code, message } => {

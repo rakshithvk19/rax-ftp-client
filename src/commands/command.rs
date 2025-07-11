@@ -71,17 +71,7 @@ impl FtpCommand {
         }
     }
 
-    /// Check if command requires authentication
-    pub fn requires_auth(&self) -> bool {
-        match self {
-            FtpCommand::User(_)
-            | FtpCommand::Pass(_)
-            | FtpCommand::Help
-            | FtpCommand::Quit
-            | FtpCommand::Unknown(_) => false,
-            _ => true,
-        }
-    }
+    // requires_auth method removed as authentication state is now checked directly in client.rs
 
     /// Check if command is client-side only
     pub fn is_client_only(&self) -> bool {

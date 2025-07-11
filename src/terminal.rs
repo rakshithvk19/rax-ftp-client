@@ -6,7 +6,7 @@ use log::{debug, error, info};
 use std::io::{self, Write};
 
 use crate::client::RaxFtpClient;
-use crate::commands::{FtpCommand, parse_command};
+use crate::commands::parse_command;
 use crate::config::ClientConfig;
 use crate::error::Result;
 
@@ -101,64 +101,10 @@ impl Terminal {
     fn handle_command(&mut self, input: &str) -> Result<bool> {
         let parsed_command = parse_command(input);
 
-        match parsed_command {
-            FtpCommand::Help => {
-                self.show_help();
-                Ok(true)
-            }
-            FtpCommand::Unknown(msg) => {
-                println!("Error: {}", msg);
-                Ok(true)
-            }
-            // For all other commands (including QUIT), send to server and display response
-            cmd => self.execute_ftp_command(cmd),
-        }
-    }
-
-    /// Show help information (client-side only)
-    fn show_help(&self) {
-        println!("Available commands:");
-        println!("  USER <username>   - Authenticate with username");
-        println!("  PASS <password>   - Provide password");
-        println!("  STOR <filename>   - Upload file to server");
-        println!("  RETR <filename>   - Download file from server");
-        println!("  LIST              - List directory contents");
-        println!("  PORT <ip:port>    - Set data connection port (active mode)");
-        println!("  PASV              - Enter passive mode");
-        println!("  PWD               - Print working directory");
-        println!("  CWD <directory>   - Change working directory");
-        println!("  DEL <filename>    - Delete file on server");
-        println!("  LOGOUT            - Log out current user");
-        println!("  RAX               - Custom server command");
-        println!("  QUIT              - Disconnect and exit");
-        println!("  HELP              - Show this help message");
-        println!();
-        println!("Data Transfer Information:");
-        println!("  Default mode: Passive (PASV)");
-        println!("  Data commands (LIST, STOR, RETR) automatically establish data connections");
-        println!("  Use PORT command to switch to active mode");
-        println!("  Use PASV command to switch to passive mode");
-        println!();
-        println!("Current server: {}", self.config.display_name());
-        println!("Current state: {}", self.client.get_state());
-        println!("Local directory: {}", self.config.local_directory());
-        println!(
-            "Data port range: {}-{}",
-            self.config.get_data_port_range().0,
-            self.config.get_data_port_range().1
-        );
-    }
-
-    /// Execute FTP command by sending to server and displaying response
-    fn execute_ftp_command(&mut self, command: FtpCommand) -> Result<bool> {
-        if command.is_client_only() {
-            return Ok(true);
-        }
-
-        // Use the enhanced client execute_command method
-        match self.client.execute_command(&command) {
+        // Pass all commands directly to the client for execution
+        match self.client.execute_command(&parsed_command) {
             Ok(response) => {
-                // Display server response to user
+                // Display response to user
                 print!("{}", response);
                 if !response.ends_with('\n') {
                     println!(); // Ensure newline
@@ -174,7 +120,7 @@ impl Terminal {
             }
             Err(e) => {
                 println!("Command failed: {}", e);
-                Ok(true)
+                Ok(true) // Continue with session despite error
             }
         }
     }

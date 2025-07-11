@@ -8,6 +8,21 @@ use std::time::Duration;
 use crate::config::ClientConfig;
 use crate::error::{RaxFtpClientError, Result};
 
+/// Data connection modes
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataMode {
+    Active,
+    Passive,
+}
+
+/// Data connection information
+#[derive(Debug, Clone)]
+pub struct DataConnectionInfo {
+    pub mode: DataMode,
+    pub host: String,
+    pub port: u16,
+}
+
 /// Manages FTP data connections for file transfers
 pub struct DataConnection {
     mode: DataConnectionMode,
@@ -30,6 +45,35 @@ enum DataConnectionMode {
 }
 
 impl DataConnection {
+    /// Establish data connection based on current connection info
+    pub fn establish_from_info(
+        connection_info: Option<&DataConnectionInfo>,
+        config: &ClientConfig,
+    ) -> Result<Self> {
+        match connection_info {
+            Some(info) => match info.mode {
+                DataMode::Active => Self::establish_active(config),
+                DataMode::Passive => Self::establish_passive(&info.host, info.port),
+            },
+            None => {
+                // Default to passive mode if no connection info
+                Err(RaxFtpClientError::DataConnectionFailed(
+                    "No data connection mode set. Use PASV or PORT command first".to_string(),
+                ))
+            }
+        }
+    }
+
+    /// Establish active data connection
+    pub fn establish_active(config: &ClientConfig) -> Result<Self> {
+        Self::new_port_mode(config)
+    }
+
+    /// Establish passive data connection WITHOUT connecting yet
+    pub fn establish_passive(server_host: &str, server_port: u16) -> Result<Self> {
+        Self::new_passive_mode(server_host, server_port)
+    }
+
     /// Create a new data connection for PORT mode (Active)
     pub fn new_port_mode(config: &ClientConfig) -> Result<Self> {
         // Try to bind to an available port in the configured range
