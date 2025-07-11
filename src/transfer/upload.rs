@@ -7,6 +7,7 @@ use std::path::Path;
 
 use crate::connection::data::DataConnection;
 use crate::error::{RaxFtpClientError, Result};
+use crate::terminal::progress::{display_progress, finish_progress, format_bytes};
 use crate::transfer::progress::TransferProgress;
 
 /// Upload a file through the data connection with progress tracking
@@ -34,7 +35,7 @@ pub fn upload_file_with_progress(
     println!(
         "Uploading '{}' ({})...",
         filename,
-        TransferProgress::format_bytes(file_size)
+        format_bytes(file_size)
     );
 
     // Create progress tracker
@@ -62,7 +63,12 @@ pub fn upload_file_with_progress(
 
                         // Update progress display every 64KB or at end
                         if total_sent % 65536 == 0 || progress.is_complete() {
-                            progress.display_progress(filename);
+                            display_progress(
+                                filename,
+                                progress.percentage(),
+                                progress.transferred_bytes(),
+                                progress.speed_bps()
+                            );
                         }
 
                         debug!("Sent {} bytes, total: {}", bytes_sent, total_sent);
@@ -86,8 +92,13 @@ pub fn upload_file_with_progress(
     }
 
     // Ensure final progress display
-    progress.display_progress(filename);
-    println!(); // New line after progress bar
+    display_progress(
+        filename,
+        progress.percentage(),
+        progress.transferred_bytes(),
+        progress.speed_bps()
+    );
+    finish_progress(); // Move to next line after progress bar
 
     // Close data connection
     data_connection.close()?;

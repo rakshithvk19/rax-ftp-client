@@ -12,7 +12,7 @@ mod transfer;
 
 use client::RaxFtpClient;
 use config::ClientConfig;
-use terminal::Terminal;
+use terminal::session::Terminal;
 
 fn main() {
     // Initialize logging

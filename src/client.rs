@@ -6,6 +6,7 @@ use crate::config::ClientConfig;
 use crate::connection::{CommandConnection, DataConnection, DataConnectionInfo, DataMode};
 use crate::error::{RaxFtpClientError, Result};
 use crate::responses::{FtpResponse, is_authentication_success, parse_response};
+use crate::terminal::listing::display_directory_listing;
 use crate::transfer::{read_directory_listing, upload_file_with_progress, validate_upload_file};
 
 /// Client connection state
@@ -253,7 +254,7 @@ impl RaxFtpClient {
         match read_directory_listing(data_connection) {
             Ok(listing) => {
                 // Display formatted directory listing
-                self.display_directory_listing(&listing);
+                display_directory_listing(&listing);
 
                 // Read final response from server
                 let final_response = self.read_response()?;
@@ -264,45 +265,6 @@ impl RaxFtpClient {
                 let _ = self.read_response();
                 Err(e)
             }
-        }
-    }
-
-    /// Display directory listing in formatted columns
-    fn display_directory_listing(&self, listing: &[String]) {
-        if listing.is_empty() {
-            println!("Directory is empty.");
-            return;
-        }
-
-        // TODO: Implement timeout-based approach for large directory listings
-        // This would be useful for directories with thousands of files
-
-        println!(
-            "{:<30} {:<8} {:<10} {:<20}",
-            "Name", "Type", "Size", "Modified"
-        );
-        println!("{}", "-".repeat(68));
-
-        for entry in listing {
-            let entry = entry.trim();
-            if entry.is_empty() {
-                continue;
-            }
-
-            // Simple classification - in future this could be enhanced
-            // to parse detailed file information from server
-            let (name, file_type, size, modified) = if entry == "." || entry == ".." {
-                (entry, "Dir", "-", "-")
-            } else if entry.ends_with('/') {
-                (entry, "Dir", "-", "-")
-            } else {
-                (entry, "File", "-", "-")
-            };
-
-            println!(
-                "{:<30} {:<8} {:<10} {:<20}",
-                name, file_type, size, modified
-            );
         }
     }
 
