@@ -114,7 +114,10 @@ impl DataConnection {
 
     /// Create a new data connection for PASV mode (Passive)
     pub fn new_passive_mode(server_host: &str, server_port: u16) -> Result<Self> {
-        info!("Creating passive data connection to {}:{}", server_host, server_port);
+        info!(
+            "Creating passive data connection to {}:{}",
+            server_host, server_port
+        );
 
         Ok(Self {
             mode: DataConnectionMode::Passive {
@@ -144,18 +147,18 @@ impl DataConnection {
                     )),
                 }
             }
-            DataConnectionMode::Passive { .. } => {
-                Err(RaxFtpClientError::DataConnectionFailed(
-                    "PORT command not applicable in passive mode".to_string(),
-                ))
-            }
+            DataConnectionMode::Passive { .. } => Err(RaxFtpClientError::DataConnectionFailed(
+                "PORT command not applicable in passive mode".to_string(),
+            )),
         }
     }
 
     /// Wait for server to connect (Active mode only)
     pub fn accept_connection(&mut self) -> Result<()> {
         match &mut self.mode {
-            DataConnectionMode::Active { listener, stream, .. } => {
+            DataConnectionMode::Active {
+                listener, stream, ..
+            } => {
                 match listener {
                     Some(listener) => {
                         info!("Waiting for server to connect to data port...");
@@ -188,24 +191,29 @@ impl DataConnection {
                     )),
                 }
             }
-            DataConnectionMode::Passive { .. } => {
-                Err(RaxFtpClientError::DataConnectionFailed(
-                    "accept_connection not applicable in passive mode. Use connect_to_server instead.".to_string(),
-                ))
-            }
+            DataConnectionMode::Passive { .. } => Err(RaxFtpClientError::DataConnectionFailed(
+                "accept_connection not applicable in passive mode. Use connect_to_server instead."
+                    .to_string(),
+            )),
         }
     }
 
     /// Connect to server (Passive mode only)
     pub fn connect_to_server(&mut self) -> Result<()> {
         match &mut self.mode {
-            DataConnectionMode::Passive { stream, server_host, server_port } => {
+            DataConnectionMode::Passive {
+                stream,
+                server_host,
+                server_port,
+            } => {
                 info!("Connecting to server at {}:{}", server_host, server_port);
 
                 let server_addr = format!("{}:{}", server_host, server_port);
                 match TcpStream::connect_timeout(
                     &server_addr.parse().map_err(|_| {
-                        RaxFtpClientError::DataConnectionFailed("Invalid server address".to_string())
+                        RaxFtpClientError::DataConnectionFailed(
+                            "Invalid server address".to_string(),
+                        )
                     })?,
                     self.timeout,
                 ) {
@@ -228,11 +236,10 @@ impl DataConnection {
                     }
                 }
             }
-            DataConnectionMode::Active { .. } => {
-                Err(RaxFtpClientError::DataConnectionFailed(
-                    "connect_to_server not applicable in active mode. Use accept_connection instead.".to_string(),
-                ))
-            }
+            DataConnectionMode::Active { .. } => Err(RaxFtpClientError::DataConnectionFailed(
+                "connect_to_server not applicable in active mode. Use accept_connection instead."
+                    .to_string(),
+            )),
         }
     }
 
@@ -273,7 +280,9 @@ impl DataConnection {
     /// Close the data connection
     pub fn close(&mut self) -> Result<()> {
         match &mut self.mode {
-            DataConnectionMode::Active { stream, listener, .. } => {
+            DataConnectionMode::Active {
+                stream, listener, ..
+            } => {
                 if let Some(stream) = stream.take() {
                     stream.shutdown(std::net::Shutdown::Both)?;
                     info!("Data connection closed");

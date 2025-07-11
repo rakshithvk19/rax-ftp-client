@@ -32,12 +32,12 @@ pub const CLIENT_ERROR_NOT_AUTHENTICATED: u16 = 530;
 pub const CLIENT_ERROR_ALREADY_AUTHENTICATED: u16 = 503;
 /// Check if status code indicates success
 pub fn is_success(code: u16) -> bool {
-    code >= 200 && code < 300
+    (200..300).contains(&code)
 }
 
 /// Check if status code indicates intermediate response
 pub fn is_intermediate(code: u16) -> bool {
-    code >= 100 && code < 200
+    (100..200).contains(&code)
 }
 
 /// Check if status code indicates error

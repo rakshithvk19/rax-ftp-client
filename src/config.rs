@@ -8,10 +8,10 @@ use std::fs;
 pub struct ClientConfig {
     /// Server configuration
     pub server: ServerConfig,
-    
+
     /// Client configuration
     pub client: ClientSettings,
-    
+
     /// Logging configuration
     pub logging: LoggingConfig,
 }
@@ -48,10 +48,10 @@ pub struct ClientSettings {
 pub struct LoggingConfig {
     /// Logging level
     pub level: String,
-    
+
     /// Enable command logging
     pub command_log: bool,
-    
+
     /// Enable transfer logging
     pub transfer_log: bool,
 }
@@ -60,15 +60,19 @@ impl ClientConfig {
     /// Create configuration from TOML file with environment variable overrides
     pub fn from_config_file(config_path: &str) -> Result<Self> {
         // Read and parse TOML file
-        let config_content = fs::read_to_string(config_path)
-            .map_err(|e| RaxFtpClientError::ConfigFileNotFound(
-                format!("Cannot read config file '{}': {}", config_path, e)
-            ))?;
+        let config_content = fs::read_to_string(config_path).map_err(|e| {
+            RaxFtpClientError::ConfigFileNotFound(format!(
+                "Cannot read config file '{}': {}",
+                config_path, e
+            ))
+        })?;
 
-        let mut config: ClientConfig = toml::from_str(&config_content)
-            .map_err(|e| RaxFtpClientError::ConfigFileParseError(
-                format!("Invalid TOML in '{}': {}", config_path, e)
-            ))?;
+        let mut config: ClientConfig = toml::from_str(&config_content).map_err(|e| {
+            RaxFtpClientError::ConfigFileParseError(format!(
+                "Invalid TOML in '{}': {}",
+                config_path, e
+            ))
+        })?;
 
         // Apply environment variable overrides
         config.apply_env_overrides()?;

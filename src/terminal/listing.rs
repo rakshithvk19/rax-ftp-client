@@ -37,7 +37,7 @@ impl DirectoryEntry {
     /// Currently performs simple parsing - can be enhanced to parse server-specific formats
     pub fn from_raw(raw_entry: &str) -> Self {
         let name = raw_entry.trim();
-        
+
         // Simple classification - this can be enhanced based on server format
         let (entry_type, display_name) = if name == "." || name == ".." {
             (EntryType::Directory, name.to_string())
@@ -50,7 +50,7 @@ impl DirectoryEntry {
         } else {
             (EntryType::File, name.to_string())
         };
-        
+
         Self {
             name: display_name,
             entry_type,
@@ -59,7 +59,7 @@ impl DirectoryEntry {
             permissions: None,
         }
     }
-    
+
     /// Get color code for the entry type (for future color support)
     pub fn color_code(&self) -> &'static str {
         match self.entry_type {
@@ -69,7 +69,7 @@ impl DirectoryEntry {
             EntryType::Unknown => "\x1b[90m",   // Gray
         }
     }
-    
+
     /// Reset color code
     pub fn reset_color() -> &'static str {
         "\x1b[0m"
@@ -82,28 +82,29 @@ pub fn display_directory_listing(raw_listing: &[String]) {
         println!("Directory is empty.");
         return;
     }
-    
+
     // Parse raw entries into structured format
     let entries: Vec<DirectoryEntry> = raw_listing
         .iter()
         .filter(|s| !s.trim().is_empty())
         .map(|s| DirectoryEntry::from_raw(s))
         .collect();
-    
+
     // Check if terminal supports colors (simplified check)
     let supports_color = std::env::var("TERM").is_ok() && !cfg!(windows);
-    
+
     // Display header
     println!(
         "{:<30} {:<8} {:<10} {:<20}",
         "Name", "Type", "Size", "Modified"
     );
     println!("{}", "-".repeat(68));
-    
+
     // Display each entry
     for entry in entries {
         let name_display = if supports_color {
-            format!("{}{}{}",
+            format!(
+                "{}{}{}",
                 entry.color_code(),
                 truncate_name(&entry.name, 30),
                 DirectoryEntry::reset_color()
@@ -111,7 +112,7 @@ pub fn display_directory_listing(raw_listing: &[String]) {
         } else {
             truncate_name(&entry.name, 30)
         };
-        
+
         println!(
             "{:<30} {:<8} {:<10} {:<20}",
             name_display,
@@ -138,12 +139,12 @@ fn format_size(size: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size_f = size as f64;
     let mut unit_index = 0;
-    
+
     while size_f >= 1024.0 && unit_index < UNITS.len() - 1 {
         size_f /= 1024.0;
         unit_index += 1;
     }
-    
+
     if unit_index == 0 {
         format!("{} {}", size, UNITS[unit_index])
     } else {
@@ -154,29 +155,29 @@ fn format_size(size: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_directory_entry_from_raw() {
         let file_entry = DirectoryEntry::from_raw("test.txt");
         assert_eq!(file_entry.name, "test.txt");
         assert_eq!(file_entry.entry_type, EntryType::File);
-        
+
         let dir_entry = DirectoryEntry::from_raw("folder/");
         assert_eq!(dir_entry.name, "folder");
         assert_eq!(dir_entry.entry_type, EntryType::Directory);
-        
+
         let link_entry = DirectoryEntry::from_raw("link -> target");
         assert_eq!(link_entry.name, "link");
         assert_eq!(link_entry.entry_type, EntryType::Link);
     }
-    
+
     #[test]
     fn test_truncate_name() {
         assert_eq!(truncate_name("short", 10), "short");
         assert_eq!(truncate_name("verylongfilename.txt", 10), "verylo...");
         assert_eq!(truncate_name("test", 2), "te");
     }
-    
+
     #[test]
     fn test_format_size() {
         assert_eq!(format_size(512), "512 B");

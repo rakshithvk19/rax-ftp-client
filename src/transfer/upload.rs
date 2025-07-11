@@ -32,11 +32,7 @@ pub fn upload_file_with_progress(
         .len();
 
     info!("Starting upload of '{}' ({} bytes)", filename, file_size);
-    println!(
-        "Uploading '{}' ({})...",
-        filename,
-        format_bytes(file_size)
-    );
+    println!("Uploading '{}' ({})...", filename, format_bytes(file_size));
 
     // Create progress tracker
     let mut progress = TransferProgress::new(file_size);
@@ -67,7 +63,7 @@ pub fn upload_file_with_progress(
                                 filename,
                                 progress.percentage(),
                                 progress.transferred_bytes(),
-                                progress.speed_bps()
+                                progress.speed_bps(),
                             );
                         }
 
@@ -96,7 +92,7 @@ pub fn upload_file_with_progress(
         filename,
         progress.percentage(),
         progress.transferred_bytes(),
-        progress.speed_bps()
+        progress.speed_bps(),
     );
     finish_progress(); // Move to next line after progress bar
 

@@ -107,10 +107,7 @@ mod tests {
         let empty_listing = vec![];
         assert!(validate_listing_format(&empty_listing).is_ok());
 
-        let invalid_listing = vec![
-            "file1.txt".to_string(),
-            "file\0with\0nulls.txt".to_string(),
-        ];
+        let invalid_listing = vec!["file1.txt".to_string(), "file\0with\0nulls.txt".to_string()];
         assert!(validate_listing_format(&invalid_listing).is_err());
     }
 

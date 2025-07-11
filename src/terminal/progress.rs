@@ -7,7 +7,7 @@ pub fn display_progress(filename: &str, percentage: f64, transferred_bytes: u64,
     // Create progress bar (50 characters wide)
     let filled = (percentage / 2.0) as usize; // 50 chars = 100% / 2
     let bar = "#".repeat(filled) + &" ".repeat(50 - filled);
-    
+
     print!(
         "\r{}: [{}] {:.1}% ({}) {}",
         filename,
@@ -16,7 +16,7 @@ pub fn display_progress(filename: &str, percentage: f64, transferred_bytes: u64,
         format_bytes(transferred_bytes),
         format_speed(speed_bps)
     );
-    
+
     if let Err(e) = io::stdout().flush() {
         eprintln!("\nError flushing stdout: {}", e);
     }
@@ -32,12 +32,12 @@ pub fn format_bytes(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
     let mut size = bytes as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     if unit_index == 0 {
         format!("{} {}", bytes, UNITS[unit_index])
     } else {
@@ -54,9 +54,9 @@ pub fn format_speed(bps: f64) -> String {
 pub fn display_spinner(message: &str, step: usize) {
     const SPINNER_CHARS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let spinner = SPINNER_CHARS[step % SPINNER_CHARS.len()];
-    
+
     print!("\r{} {}", spinner, message);
-    
+
     if let Err(e) = io::stdout().flush() {
         eprintln!("\nError flushing stdout: {}", e);
     }
@@ -65,7 +65,7 @@ pub fn display_spinner(message: &str, step: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_format_bytes() {
         assert_eq!(format_bytes(0), "0 B");
@@ -75,7 +75,7 @@ mod tests {
         assert_eq!(format_bytes(1048576), "1.0 MB");
         assert_eq!(format_bytes(1073741824), "1.0 GB");
     }
-    
+
     #[test]
     fn test_format_speed() {
         assert_eq!(format_speed(0.0), "0 B/s");
