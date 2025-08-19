@@ -3,10 +3,10 @@ use std::path::Path;
 
 use crate::commands::{FtpCommand, get_help_text};
 use crate::config::ClientConfig;
-use crate::connection::{CommandConnection, DataConnection, DataConnectionInfo, DataMode};
+use crate::connection::{CommandConnection, DataConnection};
 use crate::error::{RaxFtpClientError, Result};
 use crate::responses::{FtpResponse, is_authentication_success, parse_response};
-use crate::terminal::listing::display_directory_listing;
+use crate::terminal::listing::format_directory_listing;
 use crate::transfer::{read_directory_listing, upload_file_with_progress, validate_upload_file};
 
 /// Client connection state
@@ -32,7 +32,7 @@ pub struct RaxFtpClient {
     connection: CommandConnection,
     state: ClientState,
     config: ClientConfig,
-    data_connection_info: Option<DataConnectionInfo>,
+    data_connection: Option<DataConnection>,
 }
 
 impl RaxFtpClient {
@@ -44,7 +44,7 @@ impl RaxFtpClient {
             connection: CommandConnection::new(&config),
             state: ClientState::Disconnected,
             config,
-            data_connection_info: None,
+            data_connection: None,
         }
     }
 
@@ -74,7 +74,7 @@ impl RaxFtpClient {
     pub fn disconnect(&mut self) -> Result<()> {
         self.connection.disconnect()?;
         self.state = ClientState::Disconnected;
-        self.data_connection_info = None; // Clear connection info
+        self.data_connection = None; // Clear data connection
         Ok(())
     }
 
@@ -143,41 +143,45 @@ impl RaxFtpClient {
             RaxFtpClientError::InvalidConfigValue("Invalid address format. Use IP:PORT".to_string())
         })?;
 
+        // Create the data connection with listener on the SPECIFIC port from PORT command
+        let data_connection = DataConnection::new_port_mode_specific_port(parsed_addr.port())?;
+
         // Send PORT command to server
         let command_str = format!("PORT {}", addr);
         self.send_command(&command_str)?;
         let response = self.read_response()?;
 
-        // If successful, clear old connection info and store new data connection info
+        // If successful, store both connection info and the actual connection
         if response.starts_with("200") {
-            info!("Switching to active mode, clearing previous data connection info");
-            self.data_connection_info = Some(DataConnectionInfo {
-                mode: DataMode::Active,
-                host: parsed_addr.ip().to_string(),
-                port: parsed_addr.port(),
-            });
+            info!(
+                "Switching to active mode, storing data connection with listener on port {}",
+                parsed_addr.port()
+            );
+
+            self.data_connection = Some(data_connection);
+        } else {
+            // PORT command failed, don't store the connection
+            info!("PORT command failed, not storing data connection");
         }
 
         Ok(response)
     }
-    /// Handle PASV command - switch to passive mode
     fn handle_pasv_command(&mut self) -> Result<String> {
         self.send_command("PASV")?;
         let response = self.read_response()?;
 
-        // If successful, clear old connection info and parse and store passive mode info
         if response.starts_with("227") {
-            info!("Switching to passive mode, clearing previous data connection info");
-            // Parse server's response format: "227 Entering Passive Mode (127.0.0.1:2122)"
+            // Parse server's response to get host:port
             if let Some(start) = response.find('(') {
                 if let Some(end) = response.find(')') {
                     let addr_str = &response[start + 1..end];
                     if let Ok(addr) = addr_str.parse::<std::net::SocketAddr>() {
-                        self.data_connection_info = Some(DataConnectionInfo {
-                            mode: DataMode::Passive,
-                            host: addr.ip().to_string(),
-                            port: addr.port(),
-                        });
+                        // Create DataConnection immediately (like PORT does)
+                        let data_connection =
+                            DataConnection::new_passive_mode(&addr.ip().to_string(), addr.port())?;
+
+                        // Store the actual connection
+                        self.data_connection = Some(data_connection);
                     }
                 }
             }
@@ -187,75 +191,54 @@ impl RaxFtpClient {
     }
 
     fn handle_list_command(&mut self) -> Result<String> {
-        // Check if data connection mode is set
-        if self.data_connection_info.is_none() {
-            return Err(RaxFtpClientError::DataConnectionFailed(
-                "No data connection mode set. Use PASV or PORT command first".to_string()
-            ));
+        let mut responses = Vec::new();
+
+        // Auto-PASV if no data connection mode is set
+        if self.data_connection.is_none() {
+            let pasv_response = self.handle_pasv_command()?;
+            responses.push(pasv_response);
         }
 
-        // Establish data connection based on current mode
-        let mut data_connection = match DataConnection::establish_from_info(
-            self.data_connection_info.as_ref(),
-            &self.config,
-        ) {
-            Ok(conn) => conn,
-            Err(e) => {
-                return Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "425 Can't open data connection: {}",
-                    e
-                )));
-            }
-        };
+        info!("Data connection present");
+        let mut data_connection = self.data_connection.take().unwrap();
 
-        // Rest of the existing LIST command logic...
-        // Send PORT command if in active mode
-        if self
-            .data_connection_info
-            .as_ref()
-            .map_or(false, |info| info.mode == DataMode::Active)
-        {
-            let port_command = data_connection.get_port_command()?;
-            self.send_command(&port_command)?;
-            let port_response = self.read_response()?;
-
-            if !port_response.starts_with("200") {
-                return Ok(format!("PORT command failed: {}", port_response));
-            }
-        }
+        // Connect to server (passive mode)
+        info!("Passive mode: Connecting to server");
+        data_connection.connect_to_server()?;
 
         // Send LIST command
         self.send_command("LIST")?;
+        let list_response = self.read_response()?;
 
-        // Accept/Connect to data connection
-        if self
-            .data_connection_info
-            .as_ref()
-            .map_or(false, |info| info.mode == DataMode::Active)
-        {
-            data_connection.accept_connection()?;
-        } else {
-            data_connection.connect_to_server()?;
+        // Check if LIST command was accepted
+        if !list_response.starts_with("226") {
+            responses.push(format!("LIST command failed: {}", list_response));
+            return Ok(responses.join("\n"));
         }
 
         // Read directory listing from data channel
-        match read_directory_listing(data_connection) {
+        match read_directory_listing(&mut data_connection) {
             Ok(listing) => {
-                // Display formatted directory listing
-                display_directory_listing(&listing);
+                // Format directory listing and add to responses
+                let listing_display = format_directory_listing(&listing);
+                responses.push(listing_display);
+                responses.push(list_response);
 
-                // Read final response from server
-                let final_response = self.read_response()?;
-                Ok(final_response)
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
+                Ok(responses.join("\n"))
             }
             Err(e) => {
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
                 // Read final response even if listing failed
                 let _ = self.read_response();
                 Err(e)
             }
         }
     }
-
     /// Handle STOR command with connection timing fix
     fn handle_stor_command(&mut self, filename: &str) -> Result<String> {
         // Build local file path using the config's local directory
@@ -265,40 +248,22 @@ impl RaxFtpClient {
         validate_upload_file(&local_path)?;
 
         // Check if data connection mode is set
-        if self.data_connection_info.is_none() {
+        if self.data_connection.is_none() {
             return Err(RaxFtpClientError::DataConnectionFailed(
-                "No data connection mode set. Use PASV or PORT command first".to_string()
+                "No data connection mode set. Use PASV or PORT command first".to_string(),
             ));
         }
 
-        // Establish data connection based on current mode
-        let mut data_connection = match DataConnection::establish_from_info(
-            self.data_connection_info.as_ref(),
-            &self.config,
-        ) {
-            Ok(conn) => conn,
-            Err(e) => {
-                return Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "425 Can't open data connection: {}",
-                    e
-                )));
-            }
+        // Get or establish data connection based on current mode
+        let data_connection = if let Some(existing_conn) = self.data_connection.take() {
+            // Reuse existing connection (active mode)
+            info!("Reusing existing data connection for STOR command");
+            existing_conn
+        } else {
+            // Create new connection (passive mode)
+            info!("Creating new data connection for STOR command");
+            unimplemented!();
         };
-
-        // Send PORT command if in active mode
-        if self
-            .data_connection_info
-            .as_ref()
-            .map_or(false, |info| info.mode == DataMode::Active)
-        {
-            let port_command = data_connection.get_port_command()?;
-            self.send_command(&port_command)?;
-            let port_response = self.read_response()?;
-
-            if !port_response.starts_with("200") {
-                return Ok(format!("PORT command failed: {}", port_response));
-            }
-        }
 
         // Send STOR command
         let stor_command = format!("STOR {}", filename);
@@ -312,21 +277,6 @@ impl RaxFtpClient {
 
         // Print initial response
         print!("{}", stor_response);
-
-        // Server calls setup_data_stream after processing STOR command
-        println!("Waiting for server to prepare data connection...");
-        std::thread::sleep(std::time::Duration::from_millis(300));
-
-        // NOW connect to data channel
-        if self
-            .data_connection_info
-            .as_ref()
-            .map_or(false, |info| info.mode == DataMode::Active)
-        {
-            data_connection.accept_connection()?;
-        } else {
-            data_connection.connect_to_server()?;
-        }
 
         // Upload the file with progress
         match upload_file_with_progress(data_connection, &local_path, filename) {
@@ -393,7 +343,7 @@ impl RaxFtpClient {
                 if !self.connection.is_connected() {
                     debug!("Connection closed by server, updating state to Disconnected");
                     self.state = ClientState::Disconnected;
-                    self.data_connection_info = None; // Clear connection info
+                    self.data_connection = None; // Clear data connection
                 } else {
                     debug!("Logout successful, updating state to Connected");
                     self.state = ClientState::Connected;

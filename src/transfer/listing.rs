@@ -7,16 +7,12 @@ use crate::connection::DataConnection;
 use crate::error::{RaxFtpClientError, Result};
 
 /// Read directory listing from data connection
-pub fn read_directory_listing(mut data_connection: DataConnection) -> Result<Vec<String>> {
+pub fn read_directory_listing(data_connection: &mut DataConnection) -> Result<Vec<String>> {
     info!("Reading directory listing from data connection");
 
     let mut listing = Vec::new();
     let mut buffer = [0u8; 8192]; // 8KB buffer
     let mut accumulated_data = String::new();
-
-    // TODO: Implement timeout-based approach for large directory listings
-    // This would handle directories with thousands of files more efficiently
-    // by setting read timeouts and processing data in chunks with progress updates
 
     // Read data until connection closes naturally
     loop {

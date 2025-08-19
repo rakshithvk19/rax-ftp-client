@@ -77,10 +77,9 @@ impl DirectoryEntry {
 }
 
 /// Display a directory listing in formatted columns
-pub fn display_directory_listing(raw_listing: &[String]) {
+pub fn format_directory_listing(raw_listing: &[String]) -> String {
     if raw_listing.is_empty() {
-        println!("Directory is empty.");
-        return;
+        return "Directory is empty.".to_string();
     }
 
     // Parse raw entries into structured format
@@ -93,14 +92,16 @@ pub fn display_directory_listing(raw_listing: &[String]) {
     // Check if terminal supports colors (simplified check)
     let supports_color = std::env::var("TERM").is_ok() && !cfg!(windows);
 
-    // Display header
-    println!(
-        "{:<30} {:<8} {:<10} {:<20}",
-        "Name", "Type", "Size", "Modified"
-    );
-    println!("{}", "-".repeat(68));
+    let mut output = String::new();
 
-    // Display each entry
+    // Add header
+    output.push_str(&format!(
+        "{:<30} {:<8} {:<10} {:<20}\n",
+        "Name", "Type", "Size", "Modified"
+    ));
+    output.push_str(&format!("{}\n", "-".repeat(68)));
+
+    // Add each entry
     for entry in entries {
         let name_display = if supports_color {
             format!(
@@ -113,16 +114,17 @@ pub fn display_directory_listing(raw_listing: &[String]) {
             truncate_name(&entry.name, 30)
         };
 
-        println!(
-            "{:<30} {:<8} {:<10} {:<20}",
+        output.push_str(&format!(
+            "{:<30} {:<8} {:<10} {:<20}\n",
             name_display,
             entry.entry_type,
             entry.size.map_or("-".to_string(), format_size),
             entry.modified.as_deref().unwrap_or("-")
-        );
+        ));
     }
-}
 
+    output
+}
 /// Truncate long names to fit in column width
 fn truncate_name(name: &str, max_width: usize) -> String {
     if name.len() <= max_width {

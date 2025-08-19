@@ -8,19 +8,17 @@ use std::time::Duration;
 use crate::config::ClientConfig;
 use crate::error::{RaxFtpClientError, Result};
 
+// Constants
+const DEFAULT_BIND_IP: &str = "0.0.0.0";
+const LOCAL_TEST_IP: &str = "127.0.0.1";
+const DEFAULT_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_ACTIVE_TIMEOUT_SECS: u64 = 5;
+
 /// Data connection modes
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataMode {
     Active,
     Passive,
-}
-
-/// Data connection information
-#[derive(Debug, Clone)]
-pub struct DataConnectionInfo {
-    pub mode: DataMode,
-    pub host: String,
-    pub port: u16,
 }
 
 /// Manages FTP data connections for file transfers
@@ -45,49 +43,68 @@ enum DataConnectionMode {
 }
 
 impl DataConnection {
-    /// Establish data connection based on current connection info
-    pub fn establish_from_info(
-        connection_info: Option<&DataConnectionInfo>,
-        config: &ClientConfig,
-    ) -> Result<Self> {
-        match connection_info {
-            Some(info) => match info.mode {
-                DataMode::Active => Self::establish_active(config),
-                DataMode::Passive => Self::establish_passive(&info.host, info.port),
-            },
-            None => {
-                // Default to passive mode if no connection info
-                Err(RaxFtpClientError::DataConnectionFailed(
-                    "No data connection mode set. Use PASV or PORT command first".to_string(),
-                ))
-            }
+    /// Create error for data connection failures
+    fn data_error(msg: &str) -> RaxFtpClientError {
+        RaxFtpClientError::DataConnectionFailed(msg.to_string())
+    }
+
+    /// Create mode-specific error messages
+    fn mode_error(
+        operation: &str,
+        current_mode: &str,
+        suggested_method: &str,
+    ) -> RaxFtpClientError {
+        Self::data_error(&format!(
+            "{} not applicable in {} mode. Use {} instead.",
+            operation, current_mode, suggested_method
+        ))
+    }
+
+    /// Get mutable reference to the stream regardless of mode
+    fn get_stream_mut(&mut self) -> Option<&mut TcpStream> {
+        match &mut self.mode {
+            DataConnectionMode::Active { stream, .. } => stream.as_mut(),
+            DataConnectionMode::Passive { stream, .. } => stream.as_mut(),
         }
     }
 
-    /// Establish active data connection
-    pub fn establish_active(config: &ClientConfig) -> Result<Self> {
-        Self::new_port_mode(config)
-    }
+    /// Create a new data connection for PORT mode (Active) on a specific port
+    pub fn new_port_mode_specific_port(port: u16) -> Result<Self> {
+        let addr = format!("{}:{}", DEFAULT_BIND_IP, port);
 
-    /// Establish passive data connection WITHOUT connecting yet
-    pub fn establish_passive(server_host: &str, server_port: u16) -> Result<Self> {
-        Self::new_passive_mode(server_host, server_port)
+        let listener = TcpListener::bind(&addr).map_err(|e| {
+            error!("Failed to bind to specific port {}: {}", port, e);
+            Self::data_error(&format!("Failed to bind to port {}: {}", port, e))
+        })?;
+
+        let local_addr = listener.local_addr()?;
+        info!("Created data connection listener on specific port {}", port);
+
+        // Set listener to blocking mode (corrected from original)
+        listener.set_nonblocking(false)?;
+
+        Ok(Self {
+            mode: DataConnectionMode::Active {
+                listener: Some(listener),
+                stream: None,
+                local_addr: Some(local_addr),
+            },
+            timeout: Duration::from_secs(DEFAULT_ACTIVE_TIMEOUT_SECS),
+        })
     }
 
     /// Create a new data connection for PORT mode (Active)
     pub fn new_port_mode(config: &ClientConfig) -> Result<Self> {
-        // Try to bind to an available port in the configured range
         let (start_port, end_port) = config.get_data_port_range();
 
         for port in start_port..=end_port {
-            let addr = format!("0.0.0.0:{}", port);
+            let addr = format!("{}:{}", DEFAULT_BIND_IP, port);
 
             match TcpListener::bind(&addr) {
                 Ok(listener) => {
                     let local_addr = listener.local_addr()?;
                     info!("Created data connection listener on {}", local_addr);
 
-                    // Set listener to non-blocking
                     listener.set_nonblocking(false)?;
 
                     return Ok(Self {
@@ -106,7 +123,7 @@ impl DataConnection {
             }
         }
 
-        Err(RaxFtpClientError::DataConnectionFailed(format!(
+        Err(Self::data_error(&format!(
             "No available ports in range {}-{}",
             start_port, end_port
         )))
@@ -125,7 +142,7 @@ impl DataConnection {
                 server_host: server_host.to_string(),
                 server_port,
             },
-            timeout: Duration::from_secs(5), // Default timeout for passive mode
+            timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
         })
     }
 
@@ -133,23 +150,17 @@ impl DataConnection {
     pub fn get_port_command(&self) -> Result<String> {
         match &self.mode {
             DataConnectionMode::Active { local_addr, .. } => {
-                match local_addr {
-                    Some(addr) => {
-                        // For PORT command, we need the external IP, not 0.0.0.0
-                        // For simplicity, use 127.0.0.1 for local testing
-                        let ip = "127.0.0.1";
-                        let port = addr.port();
+                let addr = local_addr
+                    .as_ref()
+                    .ok_or_else(|| Self::data_error("No local address available"))?;
 
-                        Ok(format!("PORT {}:{}", ip, port))
-                    }
-                    None => Err(RaxFtpClientError::DataConnectionFailed(
-                        "No local address available".to_string(),
-                    )),
-                }
+                // For PORT command, we need the external IP, not 0.0.0.0
+                // For local testing, use 127.0.0.1
+                Ok(format!("PORT {}:{}", LOCAL_TEST_IP, addr.port()))
             }
-            DataConnectionMode::Passive { .. } => Err(RaxFtpClientError::DataConnectionFailed(
-                "PORT command not applicable in passive mode".to_string(),
-            )),
+            DataConnectionMode::Passive { .. } => {
+                Err(Self::mode_error("PORT command", "passive", "PASV command"))
+            }
         }
     }
 
@@ -159,41 +170,32 @@ impl DataConnection {
             DataConnectionMode::Active {
                 listener, stream, ..
             } => {
-                match listener {
-                    Some(listener) => {
-                        info!("Waiting for server to connect to data port...");
+                let listener = listener
+                    .as_ref()
+                    .ok_or_else(|| Self::data_error("No listener available"))?;
 
-                        // Set timeout for accept
-                        listener.set_nonblocking(false)?;
+                info!("Waiting for server to connect to data port...");
+                listener.set_nonblocking(false)?;
 
-                        match listener.accept() {
-                            Ok((tcp_stream, peer_addr)) => {
-                                info!("Server connected from {} for data transfer", peer_addr);
-
-                                // Set timeouts on the data stream
-                                tcp_stream.set_read_timeout(Some(self.timeout))?;
-                                tcp_stream.set_write_timeout(Some(self.timeout))?;
-
-                                *stream = Some(tcp_stream);
-                                Ok(())
-                            }
-                            Err(e) => {
-                                error!("Failed to accept data connection: {}", e);
-                                Err(RaxFtpClientError::DataConnectionFailed(format!(
-                                    "Failed to accept connection: {}",
-                                    e
-                                )))
-                            }
-                        }
+                match listener.accept() {
+                    Ok((tcp_stream, peer_addr)) => {
+                        info!("Server connected from {} for data transfer", peer_addr);
+                        *stream = Some(tcp_stream);
+                        Ok(())
                     }
-                    None => Err(RaxFtpClientError::DataConnectionFailed(
-                        "No listener available".to_string(),
-                    )),
+                    Err(e) => {
+                        error!("Failed to accept data connection: {}", e);
+                        Err(Self::data_error(&format!(
+                            "Failed to accept connection: {}",
+                            e
+                        )))
+                    }
                 }
             }
-            DataConnectionMode::Passive { .. } => Err(RaxFtpClientError::DataConnectionFailed(
-                "accept_connection not applicable in passive mode. Use connect_to_server instead."
-                    .to_string(),
+            DataConnectionMode::Passive { .. } => Err(Self::mode_error(
+                "accept_connection",
+                "passive",
+                "connect_to_server",
             )),
         }
     }
@@ -209,72 +211,53 @@ impl DataConnection {
                 info!("Connecting to server at {}:{}", server_host, server_port);
 
                 let server_addr = format!("{}:{}", server_host, server_port);
-                match TcpStream::connect_timeout(
-                    &server_addr.parse().map_err(|_| {
-                        RaxFtpClientError::DataConnectionFailed(
-                            "Invalid server address".to_string(),
-                        )
-                    })?,
-                    self.timeout,
-                ) {
+                let parsed_addr = server_addr
+                    .parse()
+                    .map_err(|_| Self::data_error("Invalid server address"))?;
+
+                match TcpStream::connect_timeout(&parsed_addr, self.timeout) {
                     Ok(tcp_stream) => {
                         info!("Connected to server for data transfer");
-
-                        // Set timeouts on the data stream
-                        tcp_stream.set_read_timeout(Some(self.timeout))?;
-                        tcp_stream.set_write_timeout(Some(self.timeout))?;
-
                         *stream = Some(tcp_stream);
                         Ok(())
                     }
                     Err(e) => {
                         error!("Failed to connect to server: {}", e);
-                        Err(RaxFtpClientError::DataConnectionFailed(format!(
+                        Err(Self::data_error(&format!(
                             "Failed to connect to server: {}",
                             e
                         )))
                     }
                 }
             }
-            DataConnectionMode::Active { .. } => Err(RaxFtpClientError::DataConnectionFailed(
-                "connect_to_server not applicable in active mode. Use accept_connection instead."
-                    .to_string(),
+            DataConnectionMode::Active { .. } => Err(Self::mode_error(
+                "connect_to_server",
+                "active",
+                "accept_connection",
             )),
         }
     }
 
     /// Send data over the connection
     pub fn send_data(&mut self, data: &[u8]) -> Result<usize> {
-        let stream = match &mut self.mode {
-            DataConnectionMode::Active { stream, .. } => stream,
-            DataConnectionMode::Passive { stream, .. } => stream,
-        };
+        let stream = self
+            .get_stream_mut()
+            .ok_or_else(|| Self::data_error("No data connection established"))?;
 
-        match stream {
-            Some(stream) => stream.write(data).map_err(|e| {
-                RaxFtpClientError::DataConnectionFailed(format!("Failed to send data: {}", e))
-            }),
-            None => Err(RaxFtpClientError::DataConnectionFailed(
-                "No data connection established".to_string(),
-            )),
-        }
+        stream
+            .write(data)
+            .map_err(|e| Self::data_error(&format!("Failed to send data: {}", e)))
     }
 
     /// Receive data from the connection
     pub fn receive_data(&mut self, buffer: &mut [u8]) -> Result<usize> {
-        let stream = match &mut self.mode {
-            DataConnectionMode::Active { stream, .. } => stream,
-            DataConnectionMode::Passive { stream, .. } => stream,
-        };
+        let stream = self
+            .get_stream_mut()
+            .ok_or_else(|| Self::data_error("No data connection established"))?;
 
-        match stream {
-            Some(stream) => stream.read(buffer).map_err(|e| {
-                RaxFtpClientError::DataConnectionFailed(format!("Failed to receive data: {}", e))
-            }),
-            None => Err(RaxFtpClientError::DataConnectionFailed(
-                "No data connection established".to_string(),
-            )),
-        }
+        stream
+            .read(buffer)
+            .map_err(|e| Self::data_error(&format!("Failed to receive data: {}", e)))
     }
 
     /// Close the data connection
