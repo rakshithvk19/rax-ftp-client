@@ -7,7 +7,7 @@ use crate::connection::{CommandConnection, DataConnection};
 use crate::error::{RaxFtpClientError, Result};
 use crate::responses::{FtpResponse, is_authentication_success, parse_response};
 use crate::terminal::listing::format_directory_listing;
-use crate::transfer::{read_directory_listing, upload_file_with_progress, validate_upload_file};
+use crate::transfer::{download_file_with_progress, read_directory_listing, upload_file_with_progress, validate_download_path, validate_upload_file};
 
 /// Client connection state
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +124,7 @@ impl RaxFtpClient {
         // Execute the command
         match command {
             FtpCommand::Stor(filename) => self.handle_stor_command(filename),
+            FtpCommand::Retr(filename) => self.handle_retr_command(filename),
             FtpCommand::List => self.handle_list_command(),
             FtpCommand::Port(addr) => self.handle_port_command(addr),
             FtpCommand::Pasv => self.handle_pasv_command(),
@@ -239,54 +240,96 @@ impl RaxFtpClient {
             }
         }
     }
-    /// Handle STOR command with connection timing fix
+
     fn handle_stor_command(&mut self, filename: &str) -> Result<String> {
+        let mut responses = Vec::new();
+
         // Build local file path using the config's local directory
         let local_path = Path::new(self.config.local_directory()).join(filename);
 
-        // Basic validation (keep your existing validate_upload_file call)
+        // Basic validation
         validate_upload_file(&local_path)?;
 
-        // Check if data connection mode is set
+        // Auto-PASV if no data connection mode is set
         if self.data_connection.is_none() {
-            return Err(RaxFtpClientError::DataConnectionFailed(
-                "No data connection mode set. Use PASV or PORT command first".to_string(),
-            ));
+            let pasv_response = self.handle_pasv_command()?;
+            responses.push(pasv_response);
         }
 
-        // Get or establish data connection based on current mode
-        let data_connection = if let Some(existing_conn) = self.data_connection.take() {
-            // Reuse existing connection (active mode)
-            info!("Reusing existing data connection for STOR command");
-            existing_conn
-        } else {
-            // Create new connection (passive mode)
-            info!("Creating new data connection for STOR command");
-            unimplemented!();
-        };
+        info!("Data connection present");
+        let mut data_connection = self.data_connection.take().unwrap();
+
+        // Connect to server (passive mode)
+        info!("Passive mode: Connecting to server");
+        data_connection.connect_to_server()?;
 
         // Send STOR command
         let stor_command = format!("STOR {}", filename);
         self.send_command(&stor_command)?;
-        let stor_response = self.read_response()?;
+        // let stor_response = self.read_response()?;
 
-        // Check if STOR command was accepted
-        if !stor_response.starts_with("150") {
-            return Ok(format!("STOR command failed: {}", stor_response));
-        }
+        // // Check if STOR command was accepted
+        // if !stor_response.starts_with("150") {
+        //     responses.push(format!("STOR command failed: {}", stor_response));
+        //     return Ok(responses.join("\n"));
+        // }
 
-        // Print initial response
-        print!("{}", stor_response);
+        // Add initial STOR response
+        // responses.push(stor_response);
 
         // Upload the file with progress
         match upload_file_with_progress(data_connection, &local_path, filename) {
             Ok(()) => {
                 // Read final response from server
                 let final_response = self.read_response()?;
-                Ok(final_response)
+                responses.push(final_response);
+                Ok(responses.join("\n"))
             }
             Err(e) => {
                 // Read final response even if upload failed
+                let _ = self.read_response();
+                Err(e)
+            }
+        }
+    }
+
+    /// Handle RETR command with connection timing fix
+    fn handle_retr_command(&mut self, filename: &str) -> Result<String> {
+        let mut responses = Vec::new();
+
+        // Build local file path using the config's local directory
+        let local_path = Path::new(self.config.local_directory()).join(filename);
+
+        // Basic validation (check if file already exists, directory is writable, etc.)
+        validate_download_path(&local_path)?;
+
+        // Auto-PASV if no data connection mode is set
+        if self.data_connection.is_none() {
+            let pasv_response = self.handle_pasv_command()?;
+            responses.push(pasv_response);
+        }
+
+        info!("Data connection present");
+        let mut data_connection = self.data_connection.take().unwrap();
+
+        // Connect to server (passive mode)
+        info!("Passive mode: Connecting to server");
+        data_connection.connect_to_server()?;
+
+        // Send RETR command
+        let retr_command = format!("RETR {}", filename);
+        self.send_command(&retr_command)?;
+
+        // Download the file with progress
+        match download_file_with_progress(data_connection, &local_path, filename) {
+            Ok(()) => {
+                // Read final response from server
+                let final_response = self.read_response()?;
+                responses.push(final_response);
+                Ok(responses.join("\n"))
+            }
+            Err(e) => {
+                // Read final response even if download failed
                 let _ = self.read_response();
                 Err(e)
             }
