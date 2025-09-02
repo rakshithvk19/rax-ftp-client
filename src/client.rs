@@ -7,7 +7,10 @@ use crate::connection::{CommandConnection, DataConnection};
 use crate::error::{RaxFtpClientError, Result};
 use crate::responses::{FtpResponse, is_authentication_success, parse_response};
 use crate::terminal::listing::format_directory_listing;
-use crate::transfer::{download_file_with_progress, read_directory_listing, upload_file_with_progress, validate_download_path, validate_upload_file};
+use crate::transfer::{
+    download_file_with_progress, read_directory_listing, upload_file_with_progress,
+    validate_download_path, validate_upload_file,
+};
 
 /// Client connection state
 #[derive(Debug, Clone, PartialEq)]
@@ -145,7 +148,7 @@ impl RaxFtpClient {
         })?;
 
         // Create the data connection with listener on the SPECIFIC port from PORT command
-        let data_connection = DataConnection::new_port_mode_specific_port(parsed_addr.port())?;
+        let data_connection = DataConnection::active_mode(parsed_addr.port())?;
 
         // Send PORT command to server
         let command_str = format!("PORT {}", addr);
@@ -179,7 +182,7 @@ impl RaxFtpClient {
                     if let Ok(addr) = addr_str.parse::<std::net::SocketAddr>() {
                         // Create DataConnection immediately (like PORT does)
                         let data_connection =
-                            DataConnection::new_passive_mode(&addr.ip().to_string(), addr.port())?;
+                            DataConnection::passive_mode(&addr.ip().to_string(), addr.port())?;
 
                         // Store the actual connection
                         self.data_connection = Some(data_connection);
@@ -201,36 +204,50 @@ impl RaxFtpClient {
         }
 
         info!("Data connection present");
-        let mut data_connection = self.data_connection.take().unwrap();
 
-        // Connect to server (passive mode)
-        info!("Passive mode: Connecting to server");
-        data_connection.connect_to_server()?;
-
-        // Send LIST command
+        // 1. Send LIST command FIRST
         self.send_command("LIST")?;
+
+        // 2. Read "150 Opening data connection" response
         let list_response = self.read_response()?;
 
-        // Check if LIST command was accepted
-        if !list_response.starts_with("226") {
+        // Check if LIST command was accepted (should be "150", not "226")
+        if !list_response.starts_with("150") {
             responses.push(format!("LIST command failed: {}", list_response));
             return Ok(responses.join("\n"));
         }
 
-        // Read directory listing from data channel
+        // Add the "150" response
+        responses.push(list_response);
+
+        let mut data_connection = self.data_connection.take().unwrap();
+
+        // 3. NOW establish data connection
+        data_connection.connect_to_server()?;
+
+        // 4. Read directory listing from data channel
         match read_directory_listing(&mut data_connection) {
             Ok(listing) => {
                 // Format directory listing and add to responses
                 let listing_display = format_directory_listing(&listing);
                 responses.push(listing_display);
-                responses.push(list_response);
+
+                // Reset connection for next use
+                data_connection.reset_connection()?;
 
                 // Put the data connection back
                 self.data_connection = Some(data_connection);
 
+                // 5. Read final "226 Directory send OK" response
+                let final_response = self.read_response()?;
+                responses.push(final_response);
+
                 Ok(responses.join("\n"))
             }
             Err(e) => {
+                // Reset connection even on error
+                data_connection.reset_connection()?;
+
                 // Put the data connection back
                 self.data_connection = Some(data_connection);
 
@@ -257,35 +274,49 @@ impl RaxFtpClient {
         }
 
         info!("Data connection present");
-        let mut data_connection = self.data_connection.take().unwrap();
 
-        // Connect to server (passive mode)
-        info!("Passive mode: Connecting to server");
-        data_connection.connect_to_server()?;
-
-        // Send STOR command
+        // 1. Send STOR command FIRST
         let stor_command = format!("STOR {}", filename);
         self.send_command(&stor_command)?;
-        // let stor_response = self.read_response()?;
 
-        // // Check if STOR command was accepted
-        // if !stor_response.starts_with("150") {
-        //     responses.push(format!("STOR command failed: {}", stor_response));
-        //     return Ok(responses.join("\n"));
-        // }
+        // 2. Read "150 Opening data connection" response
+        let stor_response = self.read_response()?;
 
-        // Add initial STOR response
-        // responses.push(stor_response);
+        // Check if STOR command was accepted (should be "150", not "226")
+        if !stor_response.starts_with("150") {
+            responses.push(format!("STOR command failed: {}", stor_response));
+            return Ok(responses.join("\n"));
+        }
 
-        // Upload the file with progress
-        match upload_file_with_progress(data_connection, &local_path, filename) {
+        // Add the "150" response
+        responses.push(stor_response);
+
+        let mut data_connection = self.data_connection.take().unwrap();
+
+        // 3. NOW establish data connection
+        data_connection.connect_to_server()?;
+
+        // 4. Upload the file with progress
+        match upload_file_with_progress(&mut data_connection, &local_path, filename) {
             Ok(()) => {
-                // Read final response from server
+                // Reset connection for next use
+                data_connection.reset_connection()?;
+
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
+                // 5. Read final response from server
                 let final_response = self.read_response()?;
                 responses.push(final_response);
                 Ok(responses.join("\n"))
             }
             Err(e) => {
+                // Reset connection even on error
+                data_connection.reset_connection()?;
+
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
                 // Read final response even if upload failed
                 let _ = self.read_response();
                 Err(e)
@@ -310,25 +341,49 @@ impl RaxFtpClient {
         }
 
         info!("Data connection present");
-        let mut data_connection = self.data_connection.take().unwrap();
 
-        // Connect to server (passive mode)
-        info!("Passive mode: Connecting to server");
-        data_connection.connect_to_server()?;
-
-        // Send RETR command
+        // 1. Send RETR command FIRST
         let retr_command = format!("RETR {}", filename);
         self.send_command(&retr_command)?;
 
-        // Download the file with progress
-        match download_file_with_progress(data_connection, &local_path, filename) {
+        // 2. Read "150 Opening data connection" response
+        let retr_response = self.read_response()?;
+
+        // Check if RETR command was accepted (should be "150", not "226")
+        if !retr_response.starts_with("150") {
+            responses.push(format!("RETR command failed: {}", retr_response));
+            return Ok(responses.join("\n"));
+        }
+
+        // Add the "150" response
+        responses.push(retr_response);
+
+        let mut data_connection = self.data_connection.take().unwrap();
+
+        // 3. NOW establish data connection
+        data_connection.connect_to_server()?;
+
+        // 4. Download the file with progress
+        match download_file_with_progress(&mut data_connection, &local_path, filename) {
             Ok(()) => {
-                // Read final response from server
+                // Reset connection for next use
+                data_connection.reset_connection()?;
+
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
+                // 5. Read final response from server
                 let final_response = self.read_response()?;
                 responses.push(final_response);
                 Ok(responses.join("\n"))
             }
             Err(e) => {
+                // Reset connection even on error
+                data_connection.reset_connection()?;
+
+                // Put the data connection back
+                self.data_connection = Some(data_connection);
+
                 // Read final response even if download failed
                 let _ = self.read_response();
                 Err(e)

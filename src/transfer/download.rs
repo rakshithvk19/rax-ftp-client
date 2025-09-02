@@ -12,7 +12,7 @@ use crate::transfer::progress::TransferProgress;
 
 /// Download a file through the data connection with progress tracking
 pub fn download_file_with_progress(
-    mut data_connection: DataConnection,
+    data_connection: &mut DataConnection,
     local_path: &Path,
     filename: &str,
 ) -> Result<()> {
@@ -46,7 +46,7 @@ pub fn download_file_with_progress(
                 match writer.write_all(&buffer[..bytes_received]) {
                     Ok(()) => {
                         total_received += bytes_received as u64;
-                        
+
                         // Update progress tracker total size as we go (since we don't know it beforehand)
                         if progress.total_bytes() < total_received {
                             progress = TransferProgress::new(total_received);
@@ -63,7 +63,10 @@ pub fn download_file_with_progress(
                             );
                         }
 
-                        debug!("Received {} bytes, total: {}", bytes_received, total_received);
+                        debug!(
+                            "Received {} bytes, total: {}",
+                            bytes_received, total_received
+                        );
                     }
                     Err(e) => {
                         error!("Failed to write to local file: {}", e);
@@ -93,23 +96,19 @@ pub fn download_file_with_progress(
     }
 
     // Final progress display
-    display_progress(
-        filename,
-        100.0,
-        total_received,
-        progress.speed_bps(),
-    );
+    display_progress(filename, 100.0, total_received, progress.speed_bps());
     finish_progress(); // Move to next line after progress bar
-
-    // Close data connection
-    data_connection.close()?;
 
     info!(
         "Download completed: {} bytes in {:?}",
         total_received,
         progress.elapsed()
     );
-    println!("Download completed: {} ({})", filename, format_bytes(total_received));
+    println!(
+        "Download completed: {} ({})",
+        filename,
+        format_bytes(total_received)
+    );
     Ok(())
 }
 

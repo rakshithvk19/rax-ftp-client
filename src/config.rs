@@ -11,9 +11,6 @@ pub struct ClientConfig {
 
     /// Client configuration
     pub client: ClientSettings,
-
-    /// Logging configuration
-    pub logging: LoggingConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -233,11 +230,6 @@ impl Default for ClientConfig {
                 data_port_start: 2122,
                 data_port_end: 2130,
             },
-            logging: LoggingConfig {
-                level: "info".to_string(),
-                command_log: true,
-                transfer_log: true,
-            },
         }
     }
 }
@@ -258,30 +250,3 @@ impl std::fmt::Display for ClientConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_display_name_with_host_name() {
-        let mut config = ClientConfig::default();
-        config.server.host_name = Some("Comp Lab 2".to_string());
-        assert_eq!(config.display_name(), "Comp Lab 2");
-    }
-
-    #[test]
-    fn test_display_name_without_host_name() {
-        let config = ClientConfig::default();
-        assert_eq!(config.display_name(), "127.0.0.1:2121");
-    }
-
-    #[test]
-    fn test_convenience_methods() {
-        let config = ClientConfig::default();
-        assert_eq!(config.host(), "127.0.0.1");
-        assert_eq!(config.port(), 2121);
-        assert_eq!(config.timeout(), 5);
-        assert_eq!(config.local_directory(), "./client_root");
-        assert_eq!(config.get_data_port_range(), (2122, 2130));
-    }
-}

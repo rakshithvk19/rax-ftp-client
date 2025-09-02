@@ -71,8 +71,6 @@ impl FtpCommand {
         }
     }
 
-    // requires_auth method removed as authentication state is now checked directly in client.rs
-
     /// Check if command is client-side only
     pub fn is_client_only(&self) -> bool {
         matches!(self, FtpCommand::Help)

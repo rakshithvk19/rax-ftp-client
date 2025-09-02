@@ -4,7 +4,7 @@
 
 [server]
 # Rax FTP server connection settings
-host = "127.0.0.1"              # Server hostname or IP address
+host = "127.0.0.1"              # Server IP address
 host_name = "RAX FTP Server"    # Friendly display name 
 port = 2121                     # Server port number
 timeout = 5                     # Connection timeout in seconds

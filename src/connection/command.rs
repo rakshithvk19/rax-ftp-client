@@ -228,7 +228,7 @@ impl CommandConnection {
 
     /// Disconnect from the server
     pub fn disconnect(&mut self) -> Result<()> {
-        if let Some(mut stream) = self.stream.take() {
+        if let Some(stream) = self.stream.take() {
             info!("Disconnecting from FTP server");
             stream
                 .shutdown(std::net::Shutdown::Both)
@@ -236,11 +236,6 @@ impl CommandConnection {
         }
         info!("Disconnected from server");
         Ok(())
-    }
-
-    /// Get connection info for display
-    pub fn connection_info(&self) -> String {
-        format!("{}:{}", self.host, self.port)
     }
 }
 

@@ -12,7 +12,7 @@ use crate::transfer::progress::TransferProgress;
 
 /// Upload a file through the data connection with progress tracking
 pub fn upload_file_with_progress(
-    mut data_connection: DataConnection,
+    data_connection: &mut DataConnection,
     local_path: &Path,
     filename: &str,
 ) -> Result<()> {
@@ -95,9 +95,6 @@ pub fn upload_file_with_progress(
         progress.speed_bps(),
     );
     finish_progress(); // Move to next line after progress bar
-
-    // Close data connection
-    data_connection.close()?;
 
     info!(
         "Upload completed: {} bytes in {:?}",
