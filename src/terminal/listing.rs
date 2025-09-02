@@ -34,26 +34,48 @@ impl fmt::Display for EntryType {
 
 impl DirectoryEntry {
     /// Create a new directory entry from a raw string
-    /// Currently performs simple parsing - can be enhanced to parse server-specific formats
+    /// Parses format: "name|size|timestamp" or falls back to simple name
     pub fn from_raw(raw_entry: &str) -> Self {
-        let name = raw_entry.trim();
-
-        // Simple classification - this can be enhanced based on server format
-        let (entry_type, display_name) = if name == "." || name == ".." {
-            (EntryType::Directory, name.to_string())
-        } else if name.ends_with('/') {
-            (EntryType::Directory, name.trim_end_matches('/').to_string())
-        } else if name.contains(" -> ") {
-            // Symbolic link format: "link -> target"
-            let parts: Vec<&str> = name.split(" -> ").collect();
-            (EntryType::Link, parts[0].to_string())
-        } else {
-            (EntryType::File, name.to_string())
-        };
-
+        let trimmed = raw_entry.trim();
+        
+        // Check if this is the new format with metadata: "name|size|timestamp"
+        if let Some(_) = trimmed.find('|') {
+            let parts: Vec<&str> = trimmed.split('|').collect();
+            if parts.len() == 3 {
+                let name = parts[0];
+                let size: Option<u64> = parts[1].parse().ok().filter(|&s| s > 0);
+                let timestamp: Option<u64> = parts[2].parse().ok().filter(|&t| t > 0);
+                
+                // Convert timestamp to readable format
+                let modified = timestamp.and_then(|ts| {
+                    use std::time::{SystemTime, UNIX_EPOCH};
+                    let system_time = UNIX_EPOCH + std::time::Duration::from_secs(ts);
+                    let datetime: chrono::DateTime<chrono::Local> = system_time.into();
+                    Some(datetime.format("%Y-%m-%d %H:%M").to_string())
+                });
+                
+                let (entry_type, display_name) = if name == "." || name == ".." {
+                    (EntryType::Directory, name.to_string())
+                } else if name.ends_with('/') {
+                    (EntryType::Directory, name.trim_end_matches('/').to_string())
+                } else {
+                    (EntryType::File, name.to_string())
+                };
+                
+                return Self {
+                    name: display_name,
+                    entry_type,
+                    size,
+                    modified,
+                    permissions: None,
+                };
+            }
+        }
+        
+        // Handle parse failure gracefully (no panics)
         Self {
-            name: display_name,
-            entry_type,
+            name: trimmed.to_string(),
+            entry_type: EntryType::Unknown,
             size: None,
             modified: None,
             permissions: None,
