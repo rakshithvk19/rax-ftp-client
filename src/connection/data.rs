@@ -39,9 +39,7 @@ impl DataConnection {
 
         let listener = TcpListener::bind(&addr).map_err(|e| {
             warn!("Failed to bind to specific port {port}: {e}");
-            RaxFtpClientError::DataConnectionFailed(format!(
-                "Failed to bind to port {port}: {e}"
-            ))
+            RaxFtpClientError::DataConnectionFailed(format!("Failed to bind to port {port}: {e}"))
         })?;
 
         info!("Created data connection listener on specific port {port}");
@@ -60,9 +58,7 @@ impl DataConnection {
 
     /// Create a new data connection for PASV mode (Passive)
     pub fn passive_mode(server_host: &str, server_port: u16) -> Result<Self> {
-        info!(
-            "Creating passive data connection to {server_host}:{server_port}"
-        );
+        info!("Creating passive data connection to {server_host}:{server_port}");
 
         let connection = Self {
             mode: DataConnectionMode::Passive {
@@ -73,9 +69,7 @@ impl DataConnection {
             timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
         };
 
-        info!(
-            "Passive data connection configured for {server_host}:{server_port}"
-        );
+        info!("Passive data connection configured for {server_host}:{server_port}");
         Ok(connection)
     }
 
@@ -87,9 +81,7 @@ impl DataConnection {
                 server_host,
                 server_port,
             } => {
-                info!(
-                    "Passive mode: Connecting to server at {server_host}:{server_port}"
-                );
+                info!("Passive mode: Connecting to server at {server_host}:{server_port}");
 
                 let server_addr = format!("{server_host}:{server_port}");
                 debug!(

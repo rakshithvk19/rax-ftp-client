@@ -87,6 +87,5 @@ impl From<std::num::ParseIntError> for RaxFtpClientError {
     }
 }
 
-
 /// Result type alias for convenience
 pub type Result<T> = std::result::Result<T, RaxFtpClientError>;

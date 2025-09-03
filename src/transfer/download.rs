@@ -63,9 +63,7 @@ pub fn download_file_with_progress(
                             );
                         }
 
-                        debug!(
-                            "Received {bytes_received} bytes, total: {total_received}"
-                        );
+                        debug!("Received {bytes_received} bytes, total: {total_received}");
                     }
                     Err(e) => {
                         error!("Failed to write to local file: {e}");

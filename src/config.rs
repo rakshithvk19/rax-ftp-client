@@ -52,9 +52,7 @@ impl ClientConfig {
         })?;
 
         let mut config: ClientConfig = toml::from_str(&config_content).map_err(|e| {
-            RaxFtpClientError::ConfigFileParseError(format!(
-                "Invalid TOML in '{config_path}': {e}"
-            ))
+            RaxFtpClientError::ConfigFileParseError(format!("Invalid TOML in '{config_path}': {e}"))
         })?;
 
         // Apply environment variable overrides
@@ -235,4 +233,3 @@ impl std::fmt::Display for ClientConfig {
         )
     }
 }
-

@@ -119,7 +119,7 @@ impl RaxFtpClient {
         // Check if trying to authenticate when already authenticated
         if matches!(command, FtpCommand::User(_)) && self.is_authenticated() {
             return Err(RaxFtpClientError::NotAuthenticated(
-                "Already authenticated. Use LOGOUT first to change user.".to_string()
+                "Already authenticated. Use LOGOUT first to change user.".to_string(),
             ));
         }
 
@@ -406,9 +406,7 @@ impl RaxFtpClient {
                 Ok(response_str)
             }
             Err(parse_error) => {
-                debug!(
-                    "Failed to parse response '{response_str}': {parse_error}"
-                );
+                debug!("Failed to parse response '{response_str}': {parse_error}");
                 // Return the original response even if parsing failed
                 Ok(response_str)
             }

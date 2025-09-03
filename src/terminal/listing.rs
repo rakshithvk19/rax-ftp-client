@@ -34,7 +34,7 @@ impl DirectoryEntry {
     /// Parses format: "name|size|timestamp" or falls back to simple name
     pub fn from_raw(raw_entry: &str) -> Self {
         let trimmed = raw_entry.trim();
-        
+
         // Check if this is the new format with metadata: "name|size|timestamp"
         if trimmed.find('|').is_some() {
             let parts: Vec<&str> = trimmed.split('|').collect();
@@ -42,7 +42,7 @@ impl DirectoryEntry {
                 let name = parts[0];
                 let size: Option<u64> = parts[1].parse().ok().filter(|&s| s > 0);
                 let timestamp: Option<u64> = parts[2].parse().ok().filter(|&t| t > 0);
-                
+
                 // Convert timestamp to readable format
                 let modified = timestamp.map(|ts| {
                     use std::time::UNIX_EPOCH;
@@ -50,7 +50,7 @@ impl DirectoryEntry {
                     let datetime: chrono::DateTime<chrono::Local> = system_time.into();
                     datetime.format("%Y-%m-%d %H:%M").to_string()
                 });
-                
+
                 let (entry_type, display_name) = if name == "." || name == ".." {
                     (EntryType::Directory, name.to_string())
                 } else if name.ends_with('/') {
@@ -58,7 +58,7 @@ impl DirectoryEntry {
                 } else {
                     (EntryType::File, name.to_string())
                 };
-                
+
                 return Self {
                     name: display_name,
                     entry_type,
@@ -67,7 +67,7 @@ impl DirectoryEntry {
                 };
             }
         }
-        
+
         // Handle parse failure gracefully (no panics)
         Self {
             name: trimmed.to_string(),

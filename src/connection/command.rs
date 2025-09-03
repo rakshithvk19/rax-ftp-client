@@ -44,9 +44,7 @@ impl CommandConnection {
         for attempt in 1..=self.max_retries {
             match self.connect() {
                 Ok(greeting) => {
-                    info!(
-                        "Successfully connected to FTP server on attempt {attempt}"
-                    );
+                    info!("Successfully connected to FTP server on attempt {attempt}");
                     return Ok(greeting);
                 }
                 Err(e) => {
