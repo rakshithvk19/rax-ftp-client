@@ -16,8 +16,8 @@ pub fn download_file_with_progress(
     local_path: &Path,
     filename: &str,
 ) -> Result<()> {
-    info!("Starting download of '{}'", filename);
-    println!("Downloading '{}'...", filename);
+    info!("Starting download of '{filename}'");
+    println!("Downloading '{filename}'...");
 
     // Create the local file
     let file = File::create(local_path).map_err(|e| RaxFtpClientError::TransferFailed {
@@ -38,7 +38,7 @@ pub fn download_file_with_progress(
         match data_connection.receive_data(&mut buffer) {
             Ok(0) => {
                 // End of file reached
-                debug!("Reached end of file, {} bytes received", total_received);
+                debug!("Reached end of file, {total_received} bytes received");
                 break;
             }
             Ok(bytes_received) => {
@@ -64,23 +64,22 @@ pub fn download_file_with_progress(
                         }
 
                         debug!(
-                            "Received {} bytes, total: {}",
-                            bytes_received, total_received
+                            "Received {bytes_received} bytes, total: {total_received}"
                         );
                     }
                     Err(e) => {
-                        error!("Failed to write to local file: {}", e);
+                        error!("Failed to write to local file: {e}");
                         println!("\nDownload failed: Failed to write to file");
                         return Err(RaxFtpClientError::TransferFailed {
                             code: 550,
-                            message: format!("Failed to write to file: {}", e),
+                            message: format!("Failed to write to file: {e}"),
                         });
                     }
                 }
             }
             Err(e) => {
-                error!("Failed to receive data: {}", e);
-                println!("\nDownload failed: {}", e);
+                error!("Failed to receive data: {e}");
+                println!("\nDownload failed: {e}");
                 return Err(e);
             }
         }
@@ -88,10 +87,10 @@ pub fn download_file_with_progress(
 
     // Ensure all data is written to disk
     if let Err(e) = writer.flush() {
-        error!("Failed to flush file: {}", e);
+        error!("Failed to flush file: {e}");
         return Err(RaxFtpClientError::TransferFailed {
             code: 550,
-            message: format!("Failed to flush file: {}", e),
+            message: format!("Failed to flush file: {e}"),
         });
     }
 

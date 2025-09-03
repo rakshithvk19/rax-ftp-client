@@ -45,17 +45,16 @@ impl CommandConnection {
             match self.connect() {
                 Ok(greeting) => {
                     info!(
-                        "Successfully connected to FTP server on attempt {}",
-                        attempt
+                        "Successfully connected to FTP server on attempt {attempt}"
                     );
                     return Ok(greeting);
                 }
                 Err(e) => {
-                    error!("Connection attempt {} failed: {}", attempt, e);
+                    error!("Connection attempt {attempt} failed: {e}");
 
                     if attempt < self.max_retries {
                         let wait_time = attempt as u64; // Simple backoff: 1s, 2s, 3s
-                        warn!("Retrying in {} seconds...", wait_time);
+                        warn!("Retrying in {wait_time} seconds...");
                         std::thread::sleep(Duration::from_secs(wait_time));
                     }
                 }
@@ -182,10 +181,10 @@ impl CommandConnection {
         let formatted_command = if command.ends_with("\r\n") {
             command.to_string()
         } else {
-            format!("{}\r\n", command)
+            format!("{command}\r\n")
         };
 
-        debug!("Sending command: {}", command);
+        debug!("Sending command: {command}");
         self.send_bytes(formatted_command.as_bytes())
     }
 

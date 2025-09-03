@@ -35,17 +35,16 @@ enum DataConnectionMode {
 impl DataConnection {
     /// Create a new data connection for PORT mode (Active) on a specific port
     pub fn active_mode(port: u16) -> Result<Self> {
-        let addr = format!("{}:{}", DEFAULT_BIND_IP, port);
+        let addr = format!("{DEFAULT_BIND_IP}:{port}");
 
         let listener = TcpListener::bind(&addr).map_err(|e| {
-            warn!("Failed to bind to specific port {}: {}", port, e);
+            warn!("Failed to bind to specific port {port}: {e}");
             RaxFtpClientError::DataConnectionFailed(format!(
-                "Failed to bind to port {}: {}",
-                port, e
+                "Failed to bind to port {port}: {e}"
             ))
         })?;
 
-        info!("Created data connection listener on specific port {}", port);
+        info!("Created data connection listener on specific port {port}");
 
         // Set listener to blocking mode
         listener.set_nonblocking(false)?;
@@ -62,8 +61,7 @@ impl DataConnection {
     /// Create a new data connection for PASV mode (Passive)
     pub fn passive_mode(server_host: &str, server_port: u16) -> Result<Self> {
         info!(
-            "Creating passive data connection to {}:{}",
-            server_host, server_port
+            "Creating passive data connection to {server_host}:{server_port}"
         );
 
         let connection = Self {
@@ -76,8 +74,7 @@ impl DataConnection {
         };
 
         info!(
-            "Passive data connection configured for {}:{}",
-            server_host, server_port
+            "Passive data connection configured for {server_host}:{server_port}"
         );
         Ok(connection)
     }
@@ -91,11 +88,10 @@ impl DataConnection {
                 server_port,
             } => {
                 info!(
-                    "Passive mode: Connecting to server at {}:{}",
-                    server_host, server_port
+                    "Passive mode: Connecting to server at {server_host}:{server_port}"
                 );
 
-                let server_addr = format!("{}:{}", server_host, server_port);
+                let server_addr = format!("{server_host}:{server_port}");
                 debug!(
                     "Attempting connection to {} with {}s timeout",
                     server_addr,
@@ -107,16 +103,15 @@ impl DataConnection {
 
                 match TcpStream::connect_timeout(&parsed_addr, self.timeout) {
                     Ok(tcp_stream) => {
-                        info!("Successfully connected to server at {}", parsed_addr);
+                        info!("Successfully connected to server at {parsed_addr}");
                         *stream = Some(tcp_stream);
                         Ok(())
                     }
                     Err(e) => {
-                        warn!("Connection attempt failed to {}: {}", parsed_addr, e);
-                        error!("Failed to establish passive data connection: {}", e);
+                        warn!("Connection attempt failed to {parsed_addr}: {e}");
+                        error!("Failed to establish passive data connection: {e}");
                         Err(RaxFtpClientError::DataConnectionFailed(format!(
-                            "Failed to connect to server: {}",
-                            e
+                            "Failed to connect to server: {e}"
                         )))
                     }
                 }
@@ -131,16 +126,15 @@ impl DataConnection {
                     // Accept incoming connection from server
                     match listener.accept() {
                         Ok((tcp_stream, server_addr)) => {
-                            info!("Server successfully connected from: {}", server_addr);
+                            info!("Server successfully connected from: {server_addr}");
                             *stream = Some(tcp_stream);
                             Ok(())
                         }
                         Err(e) => {
-                            warn!("Server connection attempt failed: {}", e);
-                            error!("Failed to accept connection in active mode: {}", e);
+                            warn!("Server connection attempt failed: {e}");
+                            error!("Failed to accept connection in active mode: {e}");
                             Err(RaxFtpClientError::DataConnectionFailed(format!(
-                                "Failed to accept connection: {}",
-                                e
+                                "Failed to accept connection: {e}"
                             )))
                         }
                     }
@@ -171,14 +165,13 @@ impl DataConnection {
 
         match stream.write(data) {
             Ok(bytes_sent) => {
-                debug!("Sent {} bytes over data connection", bytes_sent);
+                debug!("Sent {bytes_sent} bytes over data connection");
                 Ok(bytes_sent)
             }
             Err(e) => {
-                error!("Failed to send data: {}", e);
+                error!("Failed to send data: {e}");
                 Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "Send failed: {}",
-                    e
+                    "Send failed: {e}"
                 )))
             }
         }
@@ -201,14 +194,13 @@ impl DataConnection {
 
         match stream.read(buffer) {
             Ok(bytes_received) => {
-                debug!("Received {} bytes over data connection", bytes_received);
+                debug!("Received {bytes_received} bytes over data connection");
                 Ok(bytes_received)
             }
             Err(e) => {
-                error!("Failed to receive data: {}", e);
+                error!("Failed to receive data: {e}");
                 Err(RaxFtpClientError::DataConnectionFailed(format!(
-                    "Receive failed: {}",
-                    e
+                    "Receive failed: {e}"
                 )))
             }
         }

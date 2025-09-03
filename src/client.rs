@@ -41,7 +41,7 @@ pub struct RaxFtpClient {
 impl RaxFtpClient {
     /// Create a new FTP client with the given configuration
     pub fn new(config: ClientConfig) -> Self {
-        info!("Creating RAX FTP Client with config: {}", config);
+        info!("Creating RAX FTP Client with config: {config}");
 
         Self {
             connection: CommandConnection::new(&config),
@@ -88,13 +88,13 @@ impl RaxFtpClient {
             // For HELP command, get formatted help text
             if let FtpCommand::Help = command {
                 let mut help_text = get_help_text();
-                help_text = help_text.replace("[SERVER_PLACEHOLDER]", &self.config.host());
+                help_text = help_text.replace("[SERVER_PLACEHOLDER]", self.config.host());
                 help_text = help_text.replace("[STATE_PLACEHOLDER]", &self.state.to_string());
                 help_text =
                     help_text.replace("[LOCAL_DIR_PLACEHOLDER]", self.config.local_directory());
                 let (start, end) = self.config.get_data_port_range();
                 help_text =
-                    help_text.replace("[PORT_RANGE_PLACEHOLDER]", &format!("{}-{}", start, end));
+                    help_text.replace("[PORT_RANGE_PLACEHOLDER]", &format!("{start}-{end}"));
 
                 return Ok(help_text);
             }
@@ -118,10 +118,9 @@ impl RaxFtpClient {
 
         // Check if trying to authenticate when already authenticated
         if matches!(command, FtpCommand::User(_)) && self.is_authenticated() {
-            return Err(RaxFtpClientError::AlreadyAuthenticated(format!(
-                "{} Already authenticated. Use LOGOUT first to change user.",
-                crate::responses::status_codes::CLIENT_ERROR_ALREADY_AUTHENTICATED
-            )));
+            return Err(RaxFtpClientError::NotAuthenticated(
+                "Already authenticated. Use LOGOUT first to change user.".to_string()
+            ));
         }
 
         // Execute the command
@@ -151,7 +150,7 @@ impl RaxFtpClient {
         let data_connection = DataConnection::active_mode(parsed_addr.port())?;
 
         // Send PORT command to server
-        let command_str = format!("PORT {}", addr);
+        let command_str = format!("PORT {addr}");
         self.send_command(&command_str)?;
         let response = self.read_response()?;
 
@@ -213,7 +212,7 @@ impl RaxFtpClient {
 
         // Check if LIST command was accepted (should be "150", not "226")
         if !list_response.starts_with("150") {
-            responses.push(format!("LIST command failed: {}", list_response));
+            responses.push(format!("LIST command failed: {list_response}"));
             return Ok(responses.join("\n"));
         }
 
@@ -276,7 +275,7 @@ impl RaxFtpClient {
         info!("Data connection present");
 
         // 1. Send STOR command FIRST
-        let stor_command = format!("STOR {}", filename);
+        let stor_command = format!("STOR {filename}");
         self.send_command(&stor_command)?;
 
         // 2. Read "150 Opening data connection" response
@@ -284,7 +283,7 @@ impl RaxFtpClient {
 
         // Check if STOR command was accepted (should be "150", not "226")
         if !stor_response.starts_with("150") {
-            responses.push(format!("STOR command failed: {}", stor_response));
+            responses.push(format!("STOR command failed: {stor_response}"));
             return Ok(responses.join("\n"));
         }
 
@@ -343,7 +342,7 @@ impl RaxFtpClient {
         info!("Data connection present");
 
         // 1. Send RETR command FIRST
-        let retr_command = format!("RETR {}", filename);
+        let retr_command = format!("RETR {filename}");
         self.send_command(&retr_command)?;
 
         // 2. Read "150 Opening data connection" response
@@ -351,7 +350,7 @@ impl RaxFtpClient {
 
         // Check if RETR command was accepted (should be "150", not "226")
         if !retr_response.starts_with("150") {
-            responses.push(format!("RETR command failed: {}", retr_response));
+            responses.push(format!("RETR command failed: {retr_response}"));
             return Ok(responses.join("\n"));
         }
 
@@ -408,8 +407,7 @@ impl RaxFtpClient {
             }
             Err(parse_error) => {
                 debug!(
-                    "Failed to parse response '{}': {}",
-                    response_str, parse_error
+                    "Failed to parse response '{response_str}': {parse_error}"
                 );
                 // Return the original response even if parsing failed
                 Ok(response_str)

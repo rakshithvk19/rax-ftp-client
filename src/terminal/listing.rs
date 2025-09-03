@@ -9,7 +9,6 @@ pub struct DirectoryEntry {
     pub entry_type: EntryType,
     pub size: Option<u64>,
     pub modified: Option<String>,
-    pub permissions: Option<String>,
 }
 
 /// Type of directory entry
@@ -17,7 +16,6 @@ pub struct DirectoryEntry {
 pub enum EntryType {
     File,
     Directory,
-    Link,
     Unknown,
 }
 
@@ -26,7 +24,6 @@ impl fmt::Display for EntryType {
         match self {
             EntryType::File => write!(f, "File"),
             EntryType::Directory => write!(f, "Dir"),
-            EntryType::Link => write!(f, "Link"),
             EntryType::Unknown => write!(f, "?"),
         }
     }
@@ -39,7 +36,7 @@ impl DirectoryEntry {
         let trimmed = raw_entry.trim();
         
         // Check if this is the new format with metadata: "name|size|timestamp"
-        if let Some(_) = trimmed.find('|') {
+        if trimmed.find('|').is_some() {
             let parts: Vec<&str> = trimmed.split('|').collect();
             if parts.len() == 3 {
                 let name = parts[0];
@@ -47,11 +44,11 @@ impl DirectoryEntry {
                 let timestamp: Option<u64> = parts[2].parse().ok().filter(|&t| t > 0);
                 
                 // Convert timestamp to readable format
-                let modified = timestamp.and_then(|ts| {
-                    use std::time::{SystemTime, UNIX_EPOCH};
+                let modified = timestamp.map(|ts| {
+                    use std::time::UNIX_EPOCH;
                     let system_time = UNIX_EPOCH + std::time::Duration::from_secs(ts);
                     let datetime: chrono::DateTime<chrono::Local> = system_time.into();
-                    Some(datetime.format("%Y-%m-%d %H:%M").to_string())
+                    datetime.format("%Y-%m-%d %H:%M").to_string()
                 });
                 
                 let (entry_type, display_name) = if name == "." || name == ".." {
@@ -67,7 +64,6 @@ impl DirectoryEntry {
                     entry_type,
                     size,
                     modified,
-                    permissions: None,
                 };
             }
         }
@@ -78,7 +74,6 @@ impl DirectoryEntry {
             entry_type: EntryType::Unknown,
             size: None,
             modified: None,
-            permissions: None,
         }
     }
 
@@ -86,7 +81,6 @@ impl DirectoryEntry {
     pub fn color_code(&self) -> &'static str {
         match self.entry_type {
             EntryType::Directory => "\x1b[34m", // Blue
-            EntryType::Link => "\x1b[36m",      // Cyan
             EntryType::File => "\x1b[0m",       // Default
             EntryType::Unknown => "\x1b[90m",   // Gray
         }

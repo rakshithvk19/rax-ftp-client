@@ -41,33 +41,19 @@ pub struct ClientSettings {
     pub data_port_end: u16,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct LoggingConfig {
-    /// Logging level
-    pub level: String,
-
-    /// Enable command logging
-    pub command_log: bool,
-
-    /// Enable transfer logging
-    pub transfer_log: bool,
-}
-
 impl ClientConfig {
     /// Create configuration from TOML file with environment variable overrides
     pub fn from_config_file(config_path: &str) -> Result<Self> {
         // Read and parse TOML file
         let config_content = fs::read_to_string(config_path).map_err(|e| {
             RaxFtpClientError::ConfigFileNotFound(format!(
-                "Cannot read config file '{}': {}",
-                config_path, e
+                "Cannot read config file '{config_path}': {e}"
             ))
         })?;
 
         let mut config: ClientConfig = toml::from_str(&config_content).map_err(|e| {
             RaxFtpClientError::ConfigFileParseError(format!(
-                "Invalid TOML in '{}': {}",
-                config_path, e
+                "Invalid TOML in '{config_path}': {e}"
             ))
         })?;
 

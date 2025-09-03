@@ -18,7 +18,7 @@ pub fn display_progress(filename: &str, percentage: f64, transferred_bytes: u64,
     );
 
     if let Err(e) = io::stdout().flush() {
-        eprintln!("\nError flushing stdout: {}", e);
+        eprintln!("\nError flushing stdout: {e}");
     }
 }
 
@@ -48,18 +48,6 @@ pub fn format_bytes(bytes: u64) -> String {
 /// Format speed as human readable string
 pub fn format_speed(bps: f64) -> String {
     format!("{}/s", format_bytes(bps as u64))
-}
-
-/// Display a simple spinner for operations without known progress
-pub fn display_spinner(message: &str, step: usize) {
-    const SPINNER_CHARS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-    let spinner = SPINNER_CHARS[step % SPINNER_CHARS.len()];
-
-    print!("\r{} {}", spinner, message);
-
-    if let Err(e) = io::stdout().flush() {
-        eprintln!("\nError flushing stdout: {}", e);
-    }
 }
 
 #[cfg(test)]

@@ -42,14 +42,12 @@ pub fn parse_response(response: &str) -> Result<FtpResponse, String> {
     let code_str = &response[0..3];
     let code = code_str
         .parse::<u16>()
-        .map_err(|_| format!("Invalid response code: {}", code_str))?;
+        .map_err(|_| format!("Invalid response code: {code_str}"))?;
 
     // Check separator (should be space for single line, dash for multi-line start)
     let separator = response.chars().nth(3).unwrap_or(' ');
     if separator != ' ' && separator != '-' {
-        return Err(format!(
-            "Invalid response format: missing separator after code"
-        ));
+        return Err("Invalid response format: missing separator after code".to_string());
     }
 
     // Extract message (everything after "XXX " or "XXX-")
@@ -59,7 +57,7 @@ pub fn parse_response(response: &str) -> Result<FtpResponse, String> {
         String::new()
     };
 
-    debug!("Parsed FTP response: code={}, message='{}'", code, message);
+    debug!("Parsed FTP response: code={code}, message='{message}'");
 
     Ok(FtpResponse::new(code, message))
 }

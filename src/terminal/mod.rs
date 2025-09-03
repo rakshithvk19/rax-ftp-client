@@ -5,6 +5,3 @@
 pub mod listing;
 pub mod progress;
 pub mod session;
-
-// Re-export commonly used items
-pub use session::Terminal;

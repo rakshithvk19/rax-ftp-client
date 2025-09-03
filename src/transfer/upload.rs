@@ -27,11 +27,11 @@ pub fn upload_file_with_progress(
         .metadata()
         .map_err(|e| RaxFtpClientError::TransferFailed {
             code: 550,
-            message: format!("Cannot get file metadata: {}", e),
+            message: format!("Cannot get file metadata: {e}"),
         })?
         .len();
 
-    info!("Starting upload of '{}' ({} bytes)", filename, file_size);
+    info!("Starting upload of '{filename}' ({file_size} bytes)");
     println!("Uploading '{}' ({})...", filename, format_bytes(file_size));
 
     // Create progress tracker
@@ -47,7 +47,7 @@ pub fn upload_file_with_progress(
         match reader.read(&mut buffer) {
             Ok(0) => {
                 // End of file reached
-                debug!("Reached end of file, {} bytes sent", total_sent);
+                debug!("Reached end of file, {total_sent} bytes sent");
                 break;
             }
             Ok(bytes_read) => {
@@ -67,21 +67,21 @@ pub fn upload_file_with_progress(
                             );
                         }
 
-                        debug!("Sent {} bytes, total: {}", bytes_sent, total_sent);
+                        debug!("Sent {bytes_sent} bytes, total: {total_sent}");
                     }
                     Err(e) => {
-                        error!("Failed to send data: {}", e);
-                        println!("\nUpload failed: {}", e);
+                        error!("Failed to send data: {e}");
+                        println!("\nUpload failed: {e}");
                         return Err(e);
                     }
                 }
             }
             Err(e) => {
-                error!("Failed to read from file: {}", e);
+                error!("Failed to read from file: {e}");
                 println!("\nUpload failed: Failed to read file");
                 return Err(RaxFtpClientError::TransferFailed {
                     code: 550,
-                    message: format!("Failed to read file: {}", e),
+                    message: format!("Failed to read file: {e}"),
                 });
             }
         }

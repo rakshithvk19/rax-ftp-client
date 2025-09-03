@@ -22,12 +22,6 @@ impl TransferProgress {
         }
     }
 
-    /// Update progress with new bytes transferred
-    pub fn update(&mut self, bytes_transferred: u64) {
-        self.transferred_bytes = bytes_transferred;
-        self.last_update = Instant::now();
-    }
-
     /// Add bytes to current progress
     pub fn add_bytes(&mut self, bytes: u64) {
         self.transferred_bytes += bytes;

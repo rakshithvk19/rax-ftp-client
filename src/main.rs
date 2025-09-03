@@ -21,7 +21,7 @@ fn main() {
     let config = match ClientConfig::from_config_file("config/client_config.toml") {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Configuration error: {}", e);
+            eprintln!("Configuration error: {e}");
             process::exit(1);
         }
     };
@@ -33,7 +33,7 @@ fn main() {
     // Terminal will handle the connection attempt internally
     let mut terminal = Terminal::new(client, config);
     if let Err(e) = terminal.run_interactive() {
-        eprintln!("Terminal error: {}", e);
+        eprintln!("Terminal error: {e}");
         process::exit(1);
     }
 }

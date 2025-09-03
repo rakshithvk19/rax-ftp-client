@@ -25,13 +25,13 @@ pub fn read_directory_listing(data_connection: &mut DataConnection) -> Result<Ve
             Ok(bytes_read) => {
                 let data = String::from_utf8_lossy(&buffer[..bytes_read]);
                 accumulated_data.push_str(&data);
-                debug!("Received {} bytes of directory listing data", bytes_read);
+                debug!("Received {bytes_read} bytes of directory listing data");
             }
             Err(e) => {
-                error!("Failed to read directory listing: {}", e);
+                error!("Failed to read directory listing: {e}");
                 return Err(RaxFtpClientError::TransferFailed {
                     code: 426,
-                    message: format!("Failed to read directory listing: {}", e),
+                    message: format!("Failed to read directory listing: {e}"),
                 });
             }
         }
@@ -48,7 +48,7 @@ pub fn read_directory_listing(data_connection: &mut DataConnection) -> Result<Ve
                 }
             }
             Err(e) => {
-                error!("Failed to parse directory listing line: {}", e);
+                error!("Failed to parse directory listing line: {e}");
                 // Continue processing other lines
             }
         }

@@ -43,7 +43,7 @@ impl Terminal {
                 println!("Connected successfully! State: {}", self.client.get_state());
             }
             Err(e) => {
-                println!("Connection failed: {}", e);
+                println!("Connection failed: {e}");
                 println!("Continuing in disconnected mode...");
             }
         }
@@ -66,7 +66,7 @@ impl Terminal {
                         continue;
                     }
 
-                    debug!("User entered command: {}", command);
+                    debug!("User entered command: {command}");
 
                     // Parse command and handle it
                     match self.handle_command(command) {
@@ -76,13 +76,13 @@ impl Terminal {
                             }
                         }
                         Err(e) => {
-                            error!("Command failed: {}", e);
-                            println!("Error: {}", e);
+                            error!("Command failed: {e}");
+                            println!("Error: {e}");
                         }
                     }
                 }
                 Err(e) => {
-                    error!("Failed to read input: {}", e);
+                    error!("Failed to read input: {e}");
                     return Err(e.into());
                 }
             }
@@ -105,7 +105,7 @@ impl Terminal {
         match self.client.execute_command(&parsed_command) {
             Ok(response) => {
                 // Display response to user
-                print!("{}", response);
+                print!("{response}");
                 if !response.ends_with('\n') {
                     println!(); // Ensure newline
                 }
@@ -119,7 +119,7 @@ impl Terminal {
                 Ok(true) // Continue with session
             }
             Err(e) => {
-                println!("Command failed: {}", e);
+                println!("Command failed: {e}");
                 Ok(true) // Continue with session despite error
             }
         }

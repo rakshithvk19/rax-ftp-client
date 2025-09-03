@@ -71,7 +71,7 @@ pub fn parse_command(input: &str) -> FtpCommand {
         "LOGOUT" => FtpCommand::Logout,
         "RAX" => FtpCommand::Rax,
         "HELP" => FtpCommand::Help,
-        _ => FtpCommand::Unknown(format!("Unknown command: {}", cmd)),
+        _ => FtpCommand::Unknown(format!("Unknown command: {cmd}")),
     }
 }
 
