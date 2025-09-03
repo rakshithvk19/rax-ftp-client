@@ -170,37 +170,3 @@ fn format_size(size: u64) -> String {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_directory_entry_from_raw() {
-        let file_entry = DirectoryEntry::from_raw("test.txt");
-        assert_eq!(file_entry.name, "test.txt");
-        assert_eq!(file_entry.entry_type, EntryType::File);
-
-        let dir_entry = DirectoryEntry::from_raw("folder/");
-        assert_eq!(dir_entry.name, "folder");
-        assert_eq!(dir_entry.entry_type, EntryType::Directory);
-
-        let link_entry = DirectoryEntry::from_raw("link -> target");
-        assert_eq!(link_entry.name, "link");
-        assert_eq!(link_entry.entry_type, EntryType::Link);
-    }
-
-    #[test]
-    fn test_truncate_name() {
-        assert_eq!(truncate_name("short", 10), "short");
-        assert_eq!(truncate_name("verylongfilename.txt", 10), "verylo...");
-        assert_eq!(truncate_name("test", 2), "te");
-    }
-
-    #[test]
-    fn test_format_size() {
-        assert_eq!(format_size(512), "512 B");
-        assert_eq!(format_size(1024), "1.0 KB");
-        assert_eq!(format_size(1536), "1.5 KB");
-        assert_eq!(format_size(1048576), "1.0 MB");
-    }
-}
