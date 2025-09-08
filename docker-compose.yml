@@ -8,6 +8,12 @@ services:
       - RAX_FTP_LOCAL_DIRECTORY=/app/rax-ftp-client/client_root
     volumes:
       - ./client_root:/app/rax-ftp-client/client_root
+    networks:                
+          - rax-ftp-network
     stdin_open: true
     tty: true
     restart: "no"
+
+networks:                    
+  rax-ftp-network:
+    external: true

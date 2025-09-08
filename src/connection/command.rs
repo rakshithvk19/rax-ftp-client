@@ -4,7 +4,7 @@
 
 use log::{debug, error, info, warn};
 use std::io::{self, BufRead, BufReader, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 use crate::config::ClientConfig;
@@ -66,25 +66,30 @@ impl CommandConnection {
 
     /// Connect to the FTP server (single attempt)
     fn connect(&mut self) -> Result<String> {
-        // Create TCP connection with timeout
-        let stream = TcpStream::connect_timeout(
-            &format!("{}:{}", self.host, self.port)
-                .parse()
-                .map_err(|_| RaxFtpClientError::InvalidHost("Invalid host format".to_string()))?,
-            Duration::from_secs(self.timeout),
-        )
-        .map_err(|e| match e.kind() {
-            io::ErrorKind::TimedOut => {
-                RaxFtpClientError::ConnectionTimeout("Connection timed out".to_string())
-            }
-            io::ErrorKind::ConnectionRefused => RaxFtpClientError::ConnectionRefused(format!(
-                "Connection refused to {}:{}",
-                self.host, self.port
-            )),
-            _ => RaxFtpClientError::Io(e),
-        })?;
+        // Resolve hostname to SocketAddr
+        let addr = format!("{}:{}", self.host, self.port)
+            .to_socket_addrs()
+            .map_err(|_| RaxFtpClientError::InvalidHost("Could not resolve host".to_string()))?
+            .next()
+            .ok_or_else(|| {
+                RaxFtpClientError::InvalidHost("No addresses found for host".to_string())
+            })?;
 
-        // Set timeouts for read/write operations
+        // Create TCP connection with timeout
+        let stream =
+            TcpStream::connect_timeout(&addr, Duration::from_secs(self.timeout)).map_err(|e| {
+                match e.kind() {
+                    io::ErrorKind::TimedOut => {
+                        RaxFtpClientError::ConnectionTimeout("Connection timed out".to_string())
+                    }
+                    io::ErrorKind::ConnectionRefused => RaxFtpClientError::ConnectionRefused(
+                        format!("Connection refused to {}:{}", self.host, self.port),
+                    ),
+                    _ => RaxFtpClientError::Io(e),
+                }
+            })?;
+
+        // Rest of method unchanged...
         stream
             .set_read_timeout(Some(Duration::from_secs(self.timeout)))
             .map_err(RaxFtpClientError::Io)?;
@@ -94,7 +99,6 @@ impl CommandConnection {
 
         self.stream = Some(stream);
         info!("Connected to FTP server at {}:{}", self.host, self.port);
-        // Read the server greeting immediately
 
         let greeting = self.read_response()?;
         info!("Server greeting: {}", greeting.trim());
