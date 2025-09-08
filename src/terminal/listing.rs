@@ -169,4 +169,3 @@ fn format_size(size: u64) -> String {
         format!("{:.1} {}", size_f, UNITS[unit_index])
     }
 }
-

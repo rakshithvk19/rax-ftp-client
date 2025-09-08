@@ -1,219 +1,135 @@
-use crate::error::{RaxFtpClientError, Result};
+//! Configuration management for RAX FTP Client
+//!
+//! Loads configuration from config.toml with environment variable overrides.
+
+use config::{Config, Environment, File};
 use serde::Deserialize;
-use std::env;
-use std::fs;
 
-/// Configuration for the RAX FTP Client
-#[derive(Debug, Clone, Deserialize)]
+/// Complete client configuration
+#[derive(Debug, Deserialize, Clone)]
 pub struct ClientConfig {
-    /// Server configuration
-    pub server: ServerConfig,
-
-    /// Client configuration
-    pub client: ClientSettings,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ServerConfig {
-    /// FTP server hostname or IP address (for connection)
+    // ═══ SERVER CONNECTION SETTINGS ═══
+    /// FTP server hostname or IP address
     pub host: String,
 
-    /// Friendly name for this server (for identification)
-    pub host_name: Option<String>,
-
-    /// FTP server port number
+    /// FTP server port number  
     pub port: u16,
 
     /// Connection timeout in seconds
     pub timeout: u64,
 
-    /// Maximum number of retry attempts for connection
+    /// Maximum number of retry attempts
     pub max_retries: u32,
-}
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClientSettings {
-    /// Local directory path for file operations
+    // ═══ CLIENT SETTINGS ═══
+    /// Local directory for file operations
     pub local_directory: String,
 
     /// Data port range for active mode connections
     pub data_port_start: u16,
     pub data_port_end: u16,
+
+    // ═══ OPTIONAL SETTINGS ═══
+    /// Friendly name for server display (optional)
+    pub host_name: Option<String>,
 }
 
 impl ClientConfig {
-    /// Create configuration from TOML file with environment variable overrides
-    pub fn from_config_file(config_path: &str) -> Result<Self> {
-        // Read and parse TOML file
-        let config_content = fs::read_to_string(config_path).map_err(|e| {
-            RaxFtpClientError::ConfigFileNotFound(format!(
-                "Cannot read config file '{config_path}': {e}"
-            ))
-        })?;
+    /// Load configuration from config.toml with environment overrides
+    pub fn load() -> Result<Self, config::ConfigError> {
+        // Try multiple config paths in order of preference
+        let config_paths = vec![
+            "rax-ftp-client/config", // Docker production: /app/rax-ftp-client/config.toml
+            "config",                // Local development: ./config.toml
+        ];
 
-        let mut config: ClientConfig = toml::from_str(&config_content).map_err(|e| {
-            RaxFtpClientError::ConfigFileParseError(format!("Invalid TOML in '{config_path}': {e}"))
-        })?;
+        let mut last_error = None;
 
-        // Apply environment variable overrides
-        config.apply_env_overrides()?;
+        for config_path in &config_paths {
+            match Config::builder()
+                .add_source(File::with_name(config_path))
+                .add_source(Environment::with_prefix("RAX_FTP").separator("_"))
+                .build()
+            {
+                Ok(settings) => {
+                    let config: ClientConfig = settings.try_deserialize()?;
+                    // config.validate()?;
+                    return Ok(config);
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                    continue;
+                }
+            }
+        }
 
-        // Validate the configuration
-        config.validate()?;
-
-        Ok(config)
+        panic!(
+            "Failed to load config.toml from any location. Tried: {config_paths:?}. Last error: {last_error:?}"
+        );
     }
 
-    /// Apply environment variable overrides to config
-    fn apply_env_overrides(&mut self) -> Result<()> {
-        // Server overrides
-        if let Ok(host) = env::var("RAX_FTP_HOST") {
-            self.server.host = host;
-        }
+    // / Validation for configuration values
+    // fn validate(&self) -> Result<(), config::ConfigError> {
+    //     if self.host.is_empty() {
+    //         return Err(config::ConfigError::Message("Host cannot be empty".into()));
+    //     }
 
-        if let Ok(host_name) = env::var("RAX_FTP_HOST_NAME") {
-            self.server.host_name = Some(host_name);
-        }
+    //     if self.port == 0 {
+    //         return Err(config::ConfigError::Message("Port cannot be 0".into()));
+    //     }
 
-        if let Ok(port_str) = env::var("RAX_FTP_PORT") {
-            self.server.port = port_str.parse().map_err(|_| {
-                RaxFtpClientError::InvalidConfigValue(
-                    "RAX_FTP_PORT must be a valid port number".to_string(),
-                )
-            })?;
-        }
+    //     if self.timeout == 0 {
+    //         return Err(config::ConfigError::Message("Timeout cannot be 0".into()));
+    //     }
 
-        if let Ok(timeout_str) = env::var("RAX_FTP_TIMEOUT") {
-            self.server.timeout = timeout_str.parse().map_err(|_| {
-                RaxFtpClientError::InvalidConfigValue(
-                    "RAX_FTP_TIMEOUT must be a valid number of seconds".to_string(),
-                )
-            })?;
-        }
+    //     if self.data_port_start >= self.data_port_end {
+    //         return Err(config::ConfigError::Message(
+    //             "data_port_start must be less than data_port_end".into(),
+    //         ));
+    //     }
 
-        if let Ok(retries_str) = env::var("RAX_FTP_MAX_RETRIES") {
-            self.server.max_retries = retries_str.parse().map_err(|_| {
-                RaxFtpClientError::InvalidConfigValue(
-                    "RAX_FTP_MAX_RETRIES must be a valid number".to_string(),
-                )
-            })?;
-        }
+    //     if self.data_port_end - self.data_port_start < 5 {
+    //         return Err(config::ConfigError::Message(
+    //             "Data port range too small (need at least 5 ports)".into(),
+    //         ));
+    //     }
 
-        // Client overrides
-        if let Ok(local_dir) = env::var("RAX_FTP_LOCAL_DIR") {
-            self.client.local_directory = local_dir;
-        }
+    //     if !std::path::Path::new(&self.local_directory).exists() {
+    //         return Err(config::ConfigError::Message(format!(
+    //             "Local directory '{}' does not exist",
+    //             self.local_directory
+    //         )));
+    //     }
 
-        if let Ok(data_port_start_str) = env::var("RAX_FTP_DATA_PORT_START") {
-            self.client.data_port_start = data_port_start_str.parse().map_err(|_| {
-                RaxFtpClientError::InvalidConfigValue(
-                    "RAX_FTP_DATA_PORT_START must be a valid port number".to_string(),
-                )
-            })?;
-        }
+    //     Ok(())
+    // }
+}
 
-        if let Ok(data_port_end_str) = env::var("RAX_FTP_DATA_PORT_END") {
-            self.client.data_port_end = data_port_end_str.parse().map_err(|_| {
-                RaxFtpClientError::InvalidConfigValue(
-                    "RAX_FTP_DATA_PORT_END must be a valid port number".to_string(),
-                )
-            })?;
-        }
-
-        Ok(())
-    }
-
-    // Convenience methods for backward compatibility
-    pub fn host(&self) -> &str {
-        &self.server.host
-    }
-
-    pub fn port(&self) -> u16 {
-        self.server.port
-    }
-
-    pub fn timeout(&self) -> u64 {
-        self.server.timeout
-    }
-
-    pub fn max_retries(&self) -> u32 {
-        self.server.max_retries
-    }
-
-    pub fn local_directory(&self) -> &str {
-        &self.client.local_directory
-    }
-
-    /// Get the data port range for validation elsewhere
+// Convenience methods (backward compatibility)
+impl ClientConfig {
     pub fn get_data_port_range(&self) -> (u16, u16) {
-        (self.client.data_port_start, self.client.data_port_end)
+        (self.data_port_start, self.data_port_end)
     }
 
-    /// Get display name for the server (friendly name or host:port)
     pub fn display_name(&self) -> String {
-        match &self.server.host_name {
+        match &self.host_name {
             Some(name) => name.clone(),
-            None => format!("{}:{}", self.server.host, self.server.port),
+            None => format!("{}:{}", self.host, self.port),
         }
-    }
-
-    /// Validate the basic configuration
-    pub fn validate(&self) -> Result<()> {
-        // Check if host is not empty
-        if self.server.host.is_empty() {
-            return Err(RaxFtpClientError::InvalidConfigValue(
-                "Host cannot be empty".to_string(),
-            ));
-        }
-
-        // Check port range
-        if self.server.port == 0 {
-            return Err(RaxFtpClientError::InvalidConfigValue(
-                "Port cannot be 0".to_string(),
-            ));
-        }
-
-        // Check timeout
-        if self.server.timeout == 0 {
-            return Err(RaxFtpClientError::InvalidConfigValue(
-                "Timeout cannot be 0".to_string(),
-            ));
-        }
-
-        // Check data port range
-        if self.client.data_port_start >= self.client.data_port_end {
-            return Err(RaxFtpClientError::InvalidConfigValue(
-                "Data port start must be less than data port end".to_string(),
-            ));
-        }
-
-        // Check local directory exists
-        if !std::path::Path::new(&self.client.local_directory).exists() {
-            return Err(RaxFtpClientError::InvalidConfigValue(format!(
-                "Local directory '{}' does not exist",
-                self.client.local_directory
-            )));
-        }
-
-        Ok(())
     }
 }
 
 impl Default for ClientConfig {
     fn default() -> Self {
         Self {
-            server: ServerConfig {
-                host: "127.0.0.1".to_string(),
-                host_name: None,
-                port: 2121,
-                timeout: 5,
-                max_retries: 3,
-            },
-            client: ClientSettings {
-                local_directory: "./client_root".to_string(),
-                data_port_start: 2122,
-                data_port_end: 2130,
-            },
+            host: "127.0.0.1".to_string(),
+            port: 2121,
+            timeout: 5,
+            max_retries: 3,
+            local_directory: "./client_root".to_string(),
+            data_port_start: 2122,
+            data_port_end: 2130,
+            host_name: None,
         }
     }
 }
@@ -225,11 +141,11 @@ impl std::fmt::Display for ClientConfig {
             f,
             "RAX FTP Config - Server: {}, Timeout: {}s, Data Ports: {}-{}, Max Retries: {}, Local Dir: {}",
             display_name,
-            self.server.timeout,
-            self.client.data_port_start,
-            self.client.data_port_end,
-            self.server.max_retries,
-            self.client.local_directory
+            self.timeout,
+            self.data_port_start,
+            self.data_port_end,
+            self.max_retries,
+            self.local_directory
         )
     }
 }

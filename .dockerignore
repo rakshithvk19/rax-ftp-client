@@ -1,0 +1,7 @@
+target/
+.git/
+client_root/
+documentation/
+.vscode/
+.idea/
+*.log

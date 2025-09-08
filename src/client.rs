@@ -88,10 +88,10 @@ impl RaxFtpClient {
             // For HELP command, get formatted help text
             if let FtpCommand::Help = command {
                 let mut help_text = get_help_text();
-                help_text = help_text.replace("[SERVER_PLACEHOLDER]", self.config.host());
+                help_text = help_text.replace("[SERVER_PLACEHOLDER]", &self.config.host);
                 help_text = help_text.replace("[STATE_PLACEHOLDER]", &self.state.to_string());
                 help_text =
-                    help_text.replace("[LOCAL_DIR_PLACEHOLDER]", self.config.local_directory());
+                    help_text.replace("[LOCAL_DIR_PLACEHOLDER]", &self.config.local_directory);
                 let (start, end) = self.config.get_data_port_range();
                 help_text =
                     help_text.replace("[PORT_RANGE_PLACEHOLDER]", &format!("{start}-{end}"));
@@ -261,7 +261,7 @@ impl RaxFtpClient {
         let mut responses = Vec::new();
 
         // Build local file path using the config's local directory
-        let local_path = Path::new(self.config.local_directory()).join(filename);
+        let local_path = Path::new(&self.config.local_directory).join(filename);
 
         // Basic validation
         validate_upload_file(&local_path)?;
@@ -328,7 +328,7 @@ impl RaxFtpClient {
         let mut responses = Vec::new();
 
         // Build local file path using the config's local directory
-        let local_path = Path::new(self.config.local_directory()).join(filename);
+        let local_path = Path::new(&self.config.local_directory).join(filename);
 
         // Basic validation (check if file already exists, directory is writable, etc.)
         validate_download_path(&local_path)?;

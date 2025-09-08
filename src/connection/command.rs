@@ -24,16 +24,15 @@ impl CommandConnection {
     pub fn new(config: &ClientConfig) -> Self {
         info!(
             "Creating command connection for {}:{}",
-            config.host(),
-            config.port()
+            config.host, config.port
         );
 
         Self {
             stream: None,
-            host: config.host().to_string(),
-            port: config.port(),
-            timeout: config.timeout(),
-            max_retries: config.max_retries(),
+            host: config.host.clone(),
+            port: config.port,
+            timeout: config.timeout,
+            max_retries: config.max_retries,
         }
     }
 

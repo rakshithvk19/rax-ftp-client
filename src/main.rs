@@ -18,14 +18,13 @@ fn main() {
     env_logger::init();
 
     // Parse configuration from TOML file with environment variable overrides
-    let config = match ClientConfig::from_config_file("config/client_config.toml") {
+    let config = match ClientConfig::load() {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Configuration error: {e}");
+            eprintln!("Failed to load client configuration: {e}");
             process::exit(1);
         }
     };
-
     // Create client (starts in disconnected state)
     let client = RaxFtpClient::new(config.clone());
 

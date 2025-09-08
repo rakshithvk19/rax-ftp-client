@@ -1,0 +1,13 @@
+services:
+  rax-ftp-client:
+    build: .
+    container_name: rax-ftp-client
+    environment:
+      - RUST_LOG=info
+      - RAX_FTP_HOST=rax-ftp-server
+      - RAX_FTP_LOCAL_DIRECTORY=/app/rax-ftp-client/client_root
+    volumes:
+      - ./client_root:/app/rax-ftp-client/client_root
+    stdin_open: true
+    tty: true
+    restart: "no"

@@ -21,8 +21,6 @@ pub enum RaxFtpClientError {
 
     // Configuration Errors
     InvalidPort(String),
-    ConfigFileNotFound(String),
-    ConfigFileParseError(String),
     InvalidConfigValue(String),
 
     // IO Errors
@@ -56,8 +54,6 @@ impl fmt::Display for RaxFtpClientError {
 
             // Configuration Errors
             Self::InvalidPort(msg) => write!(f, "Invalid port: {msg}"),
-            Self::ConfigFileNotFound(msg) => write!(f, "Config file not found: {msg}"),
-            Self::ConfigFileParseError(msg) => write!(f, "Config file parse error: {msg}"),
             Self::InvalidConfigValue(msg) => write!(f, "Invalid config value: {msg}"),
 
             // IO Errors

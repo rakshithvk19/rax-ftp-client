@@ -1,0 +1,38 @@
+# RAX FTP Client Configuration
+# 
+# This file contains all configuration values for the RAX FTP client.
+# Values can be overridden with RAX_FTP_ environment variables.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SERVER CONNECTION (Environment Override Supported)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# FTP server connection settings
+# Environment: RAX_FTP_HOST
+host = "127.0.0.1"
+
+# Environment: RAX_FTP_PORT
+port = 2121
+
+# Environment: RAX_FTP_TIMEOUT
+timeout = 5
+
+# Environment: RAX_FTP_MAX_RETRIES
+max_retries = 3
+
+# Optional friendly name for display
+# Environment: RAX_FTP_HOST_NAME
+host_name = "RAX FTP Server"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLIENT SETTINGS (Environment Override Supported)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Local directory for file operations
+# Environment: RAX_FTP_LOCAL_DIRECTORY
+local_directory = "./client_root"
+
+# Data port range for active mode connections
+# Environment: RAX_FTP_DATA_PORT_START, RAX_FTP_DATA_PORT_END
+data_port_start = 2122
+data_port_end = 2130
