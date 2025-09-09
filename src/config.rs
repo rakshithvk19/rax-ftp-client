@@ -35,12 +35,10 @@ pub struct ClientConfig {
 }
 
 impl ClientConfig {
-    /// Load configuration from config.toml with environment overrides
     pub fn load() -> Result<Self, config::ConfigError> {
-        // Try multiple config paths in order of preference
         let config_paths = vec![
-            "rax-ftp-client/config", // Docker production: /app/rax-ftp-client/config.toml
-            "config",                // Local development: ./config.toml
+            "rax-ftp-client/config", // Docker
+            "config",                // Local
         ];
 
         let mut last_error = None;
@@ -53,7 +51,7 @@ impl ClientConfig {
             {
                 Ok(settings) => {
                     let config: ClientConfig = settings.try_deserialize()?;
-                    // config.validate()?;
+                    config.validate(config_path)?;
                     return Ok(config);
                 }
                 Err(e) => {
@@ -68,41 +66,57 @@ impl ClientConfig {
         );
     }
 
-    // / Validation for configuration values
-    // fn validate(&self) -> Result<(), config::ConfigError> {
-    //     if self.host.is_empty() {
-    //         return Err(config::ConfigError::Message("Host cannot be empty".into()));
-    //     }
+    /// Validation for configuration values
+    fn validate(&self, config_path: &str) -> Result<(), config::ConfigError> {
+        // Determine if we're in Docker based on config path
+        let is_docker = config_path == "rax-ftp-client/config";
 
-    //     if self.port == 0 {
-    //         return Err(config::ConfigError::Message("Port cannot be 0".into()));
-    //     }
+        // Basic validations
+        if self.host.is_empty() {
+            return Err(config::ConfigError::Message("Host cannot be empty".into()));
+        }
 
-    //     if self.timeout == 0 {
-    //         return Err(config::ConfigError::Message("Timeout cannot be 0".into()));
-    //     }
+        if self.port == 0 {
+            return Err(config::ConfigError::Message("Port cannot be 0".into()));
+        }
 
-    //     if self.data_port_start >= self.data_port_end {
-    //         return Err(config::ConfigError::Message(
-    //             "data_port_start must be less than data_port_end".into(),
-    //         ));
-    //     }
+        if self.timeout == 0 {
+            return Err(config::ConfigError::Message("Timeout cannot be 0".into()));
+        }
 
-    //     if self.data_port_end - self.data_port_start < 5 {
-    //         return Err(config::ConfigError::Message(
-    //             "Data port range too small (need at least 5 ports)".into(),
-    //         ));
-    //     }
+        if self.data_port_start >= self.data_port_end {
+            return Err(config::ConfigError::Message(
+                "data_port_start must be less than data_port_end".into(),
+            ));
+        }
 
-    //     if !std::path::Path::new(&self.local_directory).exists() {
-    //         return Err(config::ConfigError::Message(format!(
-    //             "Local directory '{}' does not exist",
-    //             self.local_directory
-    //         )));
-    //     }
+        if self.data_port_end - self.data_port_start < 5 {
+            return Err(config::ConfigError::Message(
+                "Data port range too small (need at least 5 ports)".into(),
+            ));
+        }
 
-    //     Ok(())
-    // }
+        // Local directory validation - create if doesn't exist
+        let local_dir_path = std::path::Path::new(&self.local_directory);
+
+        if !local_dir_path.exists() && !is_docker {
+            if let Err(e) = std::fs::create_dir_all(local_dir_path) {
+                return Err(config::ConfigError::Message(format!(
+                    "Failed to create local directory '{}': {}",
+                    self.local_directory, e
+                )));
+            }
+        }
+
+        if local_dir_path.exists() && !local_dir_path.is_dir() && !is_docker {
+            return Err(config::ConfigError::Message(format!(
+                "'{}' exists but is not a directory",
+                self.local_directory
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 // Convenience methods (backward compatibility)

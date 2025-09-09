@@ -146,6 +146,10 @@ impl RaxFtpClient {
             RaxFtpClientError::InvalidConfigValue("Invalid address format. Use IP:PORT".to_string())
         })?;
 
+        // Validate port is within configured range
+        let (start, end) = self.config.get_data_port_range();
+        DataConnection::validate_port_range(parsed_addr.port(), start, end)?;
+
         // Create the data connection with listener on the SPECIFIC port from PORT command
         let data_connection = DataConnection::active_mode(parsed_addr.port())?;
 
