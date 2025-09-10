@@ -230,8 +230,7 @@ impl DataConnection {
     pub fn validate_port_range(port: u16, start: u16, end: u16) -> Result<()> {
         if port < start || port > end {
             return Err(RaxFtpClientError::InvalidConfigValue(format!(
-                "Port {} is outside configured range {}-{}",
-                port, start, end
+                "Port {port} is outside configured range {start}-{end}"
             )));
         }
         Ok(())
