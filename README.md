@@ -31,6 +31,8 @@ cargo build --release
 ### Docker
 ```bash
 docker compose up
+
+docker attach rax-ftp-client ## Run this in a new shell
 ```
 
 ## Usage

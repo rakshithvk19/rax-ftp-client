@@ -31,6 +31,7 @@ host_name = "RAX FTP Server"
 # Local directory for file operations
 # Environment: RAX_FTP_LOCAL_DIRECTORY
 local_directory = "/app/rax-ftp-client/client_root"
+# local_directory = "./client_root"
 
 # Data port range for active mode connections
 # Environment: RAX_FTP_DATA_PORT_START, RAX_FTP_DATA_PORT_END
