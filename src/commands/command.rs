@@ -47,6 +47,12 @@ pub enum FtpCommand {
 
     /// Unknown or unsupported command
     Unknown(String),
+
+    /// MKD - Make directory on server
+    Mkd(String),
+
+    /// RMD - Remove directory on server  
+    Rmd(String),
 }
 
 impl FtpCommand {
@@ -68,6 +74,8 @@ impl FtpCommand {
             FtpCommand::Rax => "RAX".to_string(),
             FtpCommand::Help => "HELP".to_string(),
             FtpCommand::Unknown(cmd) => cmd.clone(),
+            FtpCommand::Mkd(dirname) => format!("MKD {dirname}"),
+            FtpCommand::Rmd(dirname) => format!("RMD {dirname}"),
         }
     }
 
@@ -95,6 +103,8 @@ impl std::fmt::Display for FtpCommand {
             FtpCommand::Rax => write!(f, "RAX"),
             FtpCommand::Help => write!(f, "HELP"),
             FtpCommand::Unknown(cmd) => write!(f, "UNKNOWN({cmd})"),
+            FtpCommand::Mkd(dirname) => write!(f, "MKD {dirname}"),
+            FtpCommand::Rmd(dirname) => write!(f, "RMD {dirname}"),
         }
     }
 }

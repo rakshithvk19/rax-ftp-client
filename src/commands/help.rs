@@ -17,6 +17,8 @@ pub fn get_help_text() -> String {
   LOGOUT            - Log out current user
   RAX               - Custom server command
   QUIT              - Disconnect and exit
+  MKD <directory>   - Create directory on server
+  RMD <directory>   - Remove directory on server
   HELP              - Show this help message
 
 Data Transfer Information:

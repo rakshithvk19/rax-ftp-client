@@ -9,7 +9,8 @@
 
 # FTP server connection settings
 # Environment: RAX_FTP_HOST
-host = "172.20.0.10"
+# host = "172.20.0.10"
+host = "127.0.0.1"
 
 # Environment: RAX_FTP_PORT
 port = 2121
@@ -30,8 +31,8 @@ host_name = "RAX FTP Server"
 
 # Local directory for file operations
 # Environment: RAX_FTP_LOCAL_DIRECTORY
-local_directory = "/app/rax-ftp-client/client_root"
-# local_directory = "./client_root"
+# local_directory = "/app/rax-ftp-client/client_root"
+local_directory = "./client_root"
 
 # Data port range for active mode connections
 # Environment: RAX_FTP_DATA_PORT_START, RAX_FTP_DATA_PORT_END

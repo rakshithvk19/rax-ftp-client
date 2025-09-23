@@ -10,5 +10,9 @@ clean:
 clippy:
 	cargo clippy &> clippy.txt
 
+## Format the code
+fmt:
+	cargo fmt
+
 # Default target
 .PHONY: client debug trace build release clean
